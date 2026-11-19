@@ -1,0 +1,60 @@
+--!strict
+-- Tüm RemoteEvent / RemoteFunction'lar burada tanımlanır.
+-- Server bunları oluşturur, client bekler. İsimler tek yerde olduğu için yazım hatası olmaz.
+--
+-- Kural: Client sadece İSTEK gönderir. Hangi balığın çıktığına, para miktarına vs. server karar verir.
+
+local ReplicatedStorage = game:GetService("ReplicatedStorage")
+local RunService = game:GetService("RunService")
+
+local EVENTS = {
+	"CastRequest", -- client -> server: olta at (spot adı)
+	"FishHooked", -- server -> client: balık takıldı, reeling bar'ı başlat (nadirlik bilgisi)
+	"ReelResult", -- client -> server: reeling bitti (başarılı mı)
+	"FishCaught", -- server -> client: balık depoya eklendi
+	"SellRequest", -- client -> server: slot'taki balığı sat
+	"PoolRequest", -- client -> server: slot'taki balığı havuza koy
+	"DataUpdated", -- server -> client: para / depo / havuz değişti
+}
+
+local FUNCTIONS = {
+	"GetPlayerData", -- client -> server: güncel veriyi iste
+}
+
+local folder: Folder
+if RunService:IsServer() then
+	folder = ReplicatedStorage:FindFirstChild("Remotes") :: Folder
+	if not folder then
+		folder = Instance.new("Folder")
+		folder.Name = "Remotes"
+		folder.Parent = ReplicatedStorage
+	end
+	for _, name in EVENTS do
+		if not folder:FindFirstChild(name) then
+			local e = Instance.new("RemoteEvent")
+			e.Name = name
+			e.Parent = folder
+		end
+	end
+	for _, name in FUNCTIONS do
+		if not folder:FindFirstChild(name) then
+			local f = Instance.new("RemoteFunction")
+			f.Name = name
+			f.Parent = folder
+		end
+	end
+else
+	folder = ReplicatedStorage:WaitForChild("Remotes") :: Folder
+end
+
+local Remotes = {}
+
+function Remotes.Event(name: string): RemoteEvent
+	return folder:WaitForChild(name) :: RemoteEvent
+end
+
+function Remotes.Function(name: string): RemoteFunction
+	return folder:WaitForChild(name) :: RemoteFunction
+end
+
+return Remotes
