@@ -262,6 +262,7 @@ end
 
 function UIController.Init()
 	buildUI()
+	require(script.Parent:WaitForChild("Inventory")).Init()
 
 	Remotes.Event("DataUpdated").OnClientEvent:Connect(applyData)
 	Remotes.Event("Notify").OnClientEvent:Connect(function(text, color)
