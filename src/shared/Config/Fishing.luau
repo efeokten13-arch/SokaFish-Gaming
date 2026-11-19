@@ -18,6 +18,10 @@ local Fishing = {
 	ZoneAccelDown = 2.4, -- bırakınca aşağı ivme
 	MaxReelTime = 45, -- bundan uzun süren çekme geçersiz sayılır (sn)
 
+	-- Olta görseli
+	RodRestPitch = 35, -- olta elde dururken ucunun yukarı açısı (derece). Olta yamuk duruyorsa bunu oynayın
+	RodHideDelay = 6, -- balık tutulmayınca kaç saniye sonra olta elden kalkar
+
 	-- Tuşlar (mobilde ekrandaki büyük buton kullanılır)
 	-- Not: Space kullanmıyoruz çünkü teknede Space = koltuktan zıplama
 	KeyboardKey = Enum.KeyCode.F,

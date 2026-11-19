@@ -17,6 +17,7 @@ local Server = script.Parent.Parent
 local FishService = require(Server.Fish.FishService)
 local DataService = require(Server.Data.DataService)
 local BoatService = require(Server.Boat.BoatService)
+local FishingVisuals = require(Server.Fish.FishingVisuals)
 
 local FishingService = {}
 
@@ -47,6 +48,7 @@ end
 
 local function endSession(player: Player, reason: string)
 	sessions[player] = nil
+	FishingVisuals.End(player)
 	Remotes.Event("FishingEnded"):FireClient(player, reason)
 end
 
@@ -83,6 +85,7 @@ local function onCast(player: Player, spot: any)
 
 	local session: Session = { state = "waiting", fishId = fishId, spot = spot }
 	sessions[player] = session
+	FishingVisuals.Cast(player, spot, data.rod)
 
 	task.delay(rng:NextNumber(Cfg.WaitMin, Cfg.WaitMax), function()
 		if sessions[player] ~= session or session.state ~= "waiting" then
@@ -91,6 +94,7 @@ local function onCast(player: Player, spot: any)
 		session.state = "bite"
 		session.biteAt = os.clock()
 		Remotes.Event("FishBite"):FireClient(player)
+		FishingVisuals.Bite(player)
 
 		task.delay(Cfg.BiteWindow + Cfg.LatencyGrace, function()
 			if sessions[player] == session and session.state == "bite" then
@@ -121,6 +125,7 @@ local function onHook(player: Player)
 	s.reelStart = os.clock()
 	local def = Fish[s.fishId]
 	local r = (Rarities :: any)[def.rarity]
+	FishingVisuals.Hooked(player)
 	Remotes.Event("FishHooked"):FireClient(player, {
 		rarity = def.rarity,
 		barSpeed = r.barSpeed,
@@ -158,11 +163,13 @@ local function onReel(player: Player, success: any)
 
 	table.insert(data.storage, s.fishId)
 	sessions[player] = nil
+	FishingVisuals.Caught(player, s.fishId)
 	Remotes.Event("FishCaught"):FireClient(player, s.fishId)
 	Remotes.Event("DataUpdated"):FireClient(player, data)
 end
 
 function FishingService.Init()
+	FishingVisuals.Init()
 	Remotes.Event("CastRequest").OnServerEvent:Connect(onCast)
 	Remotes.Event("HookRequest").OnServerEvent:Connect(onHook)
 	Remotes.Event("ReelResult").OnServerEvent:Connect(onReel)
