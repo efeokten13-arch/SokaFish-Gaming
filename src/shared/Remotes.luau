@@ -8,10 +8,16 @@ local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local RunService = game:GetService("RunService")
 
 local EVENTS = {
-	"CastRequest", -- client -> server: olta at (spot adı)
-	"FishHooked", -- server -> client: balık takıldı, reeling bar'ı başlat (nadirlik bilgisi)
-	"ReelResult", -- client -> server: reeling bitti (başarılı mı)
-	"FishCaught", -- server -> client: balık depoya eklendi
+	-- Balık tutma döngüsü
+	"CastRequest", -- client -> server: olta at (spot Part'ı)
+	"FishBite", -- server -> client: balık vurdu, oyuncu basmalı
+	"HookRequest", -- client -> server: oyuncu bastı
+	"FishHooked", -- server -> client: takıldı, reeling bar'ı başlat (nadirlik, barSpeed, targetSize)
+	"ReelResult", -- client -> server: reeling bitti (true = başarılı)
+	"FishCaught", -- server -> client: balık depoya eklendi (fishId)
+	"FishingEnded", -- server -> client: döngü bitti, sebep ("early", "late", "escaped", "full", "far", ...)
+
+	-- Ekonomi
 	"SellRequest", -- client -> server: slot'taki balığı sat
 	"PoolRequest", -- client -> server: slot'taki balığı havuza koy
 	"DataUpdated", -- server -> client: para / depo / havuz değişti
