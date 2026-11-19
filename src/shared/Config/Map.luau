@@ -12,7 +12,7 @@ local Map = {
 	-- Terrain 4 stud'luk adımlara yuvarlandığı için ölçülmüş yükseklikler
 	BeachY = 2,
 	GrassY = 6,
-	DeckY = 3.5, -- iskele ve dock üst yüzü
+	DeckY = 6.5, -- iskele ve dock üst yüzü (ada zemini ile aynı seviye)
 
 	Main = { radius = 235 },
 	Ring = { count = 12, radius = 700, startAngle = 15 },

@@ -68,9 +68,18 @@ function Land.islands(cfg)
 	end
 end
 
--- Zemin boyaması (plaza taşı, patika): üst 4 stud'luk katmanın malzemesini değiştirir
+-- Zemin boyaması: yüksekliği değiştirmez, sadece çimi başka malzemeyle değiştirir (şeritler halinde daire)
 function Land.paintDisc(x, z, radius, mat)
-	Terrain:FillCylinder(CFrame.new(x, 2, z), 4, radius, mat)
+	local dz = -radius
+	while dz < radius do
+		local zc = dz + 2
+		local half = math.sqrt(math.max(radius * radius - zc * zc, 0))
+		if half > 1 then
+			local region = Region3.new(Vector3.new(x - half, 0, z + dz), Vector3.new(x + half, 12, z + dz + 4)):ExpandToGrid(4)
+			Terrain:ReplaceMaterial(region, 4, GRASS, mat)
+		end
+		dz += 4
+	end
 end
 
 function Land.path(p0, p1, radius, mat)

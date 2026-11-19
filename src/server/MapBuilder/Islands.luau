@@ -1,0 +1,173 @@
+--!nonstrict
+-- 12 özel ada: balık ağı, havuz bölgesi, iskele, kulübe, palmiyeler. Hepsi Workspace.PrivateIslands içinde.
+local Workspace = game:GetService("Workspace")
+local Util = require(script.Parent.Util)
+local Layout = require(script.Parent.Layout)
+local Decor = require(script.Parent.Decor)
+
+local Islands = {}
+
+local WOOD = Color3.fromRGB(139, 94, 60)
+local DARK = Color3.fromRGB(92, 62, 40)
+local ROPE = Color3.fromRGB(205, 190, 150)
+local CREAM = Color3.fromRGB(255, 244, 214)
+local STONE = Color3.fromRGB(150, 150, 156)
+
+local function v3(p, y)
+	return Vector3.new(p.X, y, p.Z)
+end
+
+-- Boynuzlar arasında direkler, halat, şamandıra ve ip ağ
+local function net(model, cfg, f)
+	local a = Layout.arcPoint(cfg, f, -1)
+	local b = Layout.arcPoint(cfg, f, 1)
+	local g = cfg.GrassY
+	local dir = (b - a)
+	local len = dir.Magnitude
+	local n = math.floor(len / 8)
+	local folder = Instance.new("Folder")
+	folder.Name = "FishNet"
+	-- direkler (ağ hattı, boynuz uçlarından biraz içeride değil tam suda)
+	local posts = {}
+	for i = 0, n do
+		local p = a + dir * (i / n)
+		posts[i] = p
+		Util.pole(folder, "NetPost", p.X, p.Z, -8, 5, 0.9, DARK, Enum.Material.Wood)
+		local float = Util.ball(folder, "Buoy", Vector3.new(1.6, 1.6, 1.6), CFrame.new(p.X, 0.3, p.Z), Color3.fromRGB(235, 90, 60), Enum.Material.SmoothPlastic)
+		float.CanCollide = false
+	end
+	-- üst halat ve su altı ipleri
+	Util.rod(folder, "NetRopeTop", v3(a, 4.2), v3(b, 4.2), 0.35, ROPE, Enum.Material.Fabric).CanCollide = false
+	Util.rod(folder, "NetRopeMid", v3(a, -2), v3(b, -2), 0.25, ROPE, Enum.Material.Fabric).CanCollide = false
+	Util.rod(folder, "NetRopeLow", v3(a, -7), v3(b, -7), 0.25, ROPE, Enum.Material.Fabric).CanCollide = false
+	local strands = math.floor(len / 3)
+	for i = 0, strands do
+		local p = a + dir * (i / strands)
+		local s = Util.part(folder, "Strand", Vector3.new(0.18, 11.4, 0.18), CFrame.new(p.X, -1.5, p.Z), ROPE, Enum.Material.Fabric)
+		s.CanCollide = false
+	end
+	folder.Parent = model
+	return a, b
+end
+
+local function dock(model, cfg, f)
+	local tipPos = Layout.arcPoint(cfg, f, 1)
+	local y = cfg.DeckY
+	-- boynuzun ucundan merkeze doğru uzanan küçük iskele
+	local start = tipPos + f.u * 6
+	local stop = tipPos + f.u * (18 + cfg.Island.dockLength)
+	local deckFolder = Instance.new("Folder")
+	deckFolder.Name = "DockDeck"
+	Util.beam(deckFolder, "Deck", v3(start, y - 0.5), v3(stop, y - 0.5), 6, 1, WOOD, Enum.Material.WoodPlanks)
+	local len = (stop - start).Magnitude
+	for i = 0, math.floor(len / 8) do
+		local p = start:Lerp(stop, i / math.max(1, math.floor(len / 8)))
+		local side = Vector3.new(-f.u.Z, 0, f.u.X) * 2.4
+		for _, s in { -1, 1 } do
+			Util.pole(deckFolder, "Piling", p.X + side.X * s, p.Z + side.Z * s, -9, y + 1.4, 0.9, DARK, Enum.Material.Wood)
+		end
+	end
+	-- "Dock" parçası: iskelenin ucundaki bağlama platformu (kayık buraya yanaşır)
+	local endPos = stop + f.u * 3
+	local d = Util.part(model, "Dock", Vector3.new(8, 1, 8), CFrame.lookAt(v3(endPos, y - 0.5), v3(endPos + f.u, y - 0.5)), WOOD, Enum.Material.WoodPlanks)
+	local sidev = Vector3.new(-f.u.Z, 0, f.u.X)
+	for _, s in { -1, 1 } do
+		local bp = endPos + sidev * s * 3.2
+		Util.pole(deckFolder, "Piling", bp.X, bp.Z, -9, y + 1.4, 1, DARK, Enum.Material.Wood)
+		Util.cyl(deckFolder, "Bollard", 1.4, 1, CFrame.new(bp.X, y + 0.7, bp.Z) * CFrame.Angles(0, 0, math.pi / 2), Color3.fromRGB(60, 60, 66), Enum.Material.Metal)
+	end
+	Decor.lamp(deckFolder, Vector3.new(endPos.X + sidev.X * 3, y, endPos.Z + sidev.Z * 3))
+	deckFolder.Parent = model
+	return d, endPos
+end
+
+local function hut(model, cfg, f, i)
+	local g = cfg.GrassY
+	local p = Layout.arcPoint(cfg, f, 0) + f.back * 6
+	local yaw = math.atan2(-f.u.X, -f.u.Z) -- ön yüz (+Z) merkeze (u) baksın... 
+	local cf = CFrame.lookAt(v3(p, g), v3(p, g) + f.u * 10)
+	local h = Instance.new("Model")
+	h.Name = "Hut"
+	local function box(name, size, off, color, mat)
+		return Util.part(h, name, size, cf * CFrame.new(off), color, mat)
+	end
+	box("Base", Vector3.new(15, 1, 13), Vector3.new(0, 0.5, 0), STONE, Enum.Material.Cobblestone)
+	box("Walls", Vector3.new(13, 7, 11), Vector3.new(0, 4.5, 0), Color3.fromRGB(190, 150, 104), Enum.Material.WoodPlanks)
+	box("Roof", Vector3.new(16, 1, 14), Vector3.new(0, 8.5, 0), Color3.fromRGB(176, 84, 60), Enum.Material.Slate)
+	-- ön yüz: lookAt ile -Z ileri; ön = -Z
+	box("Door", Vector3.new(3, 5, 0.4), Vector3.new(0, 3.5, -5.6), DARK, Enum.Material.Wood)
+	box("Window", Vector3.new(3, 3, 0.4), Vector3.new(4, 5.5, -5.6), Color3.fromRGB(150, 210, 235), Enum.Material.Glass)
+	local sg = box("Sign", Vector3.new(7, 2.2, 0.3), Vector3.new(-3.6, 5.8, -5.75), Color3.fromRGB(40, 90, 120), Enum.Material.WoodPlanks)
+	Util.sign(sg, Enum.NormalId.Front, "ISLAND " .. i, CREAM)
+	Decor.crate(h, v3(p, g) + (cf.RightVector * -7 + cf.LookVector * 7), i)
+	Decor.barrel(h, v3(p, g) + (cf.RightVector * 7 + cf.LookVector * 7))
+	h.Parent = model
+	return h
+end
+
+local function trees(model, cfg, f, rng)
+	local g = cfg.GrassY
+	for k = 1, 5 do
+		local t = rng:NextNumber(-0.7, 0.7)
+		local p = Layout.arcPoint(cfg, f, t)
+		local r = Layout.radiusAt(cfg, t)
+		local ang = rng:NextNumber(0, math.pi * 2)
+		local q = p + Vector3.new(math.cos(ang), 0, math.sin(ang)) * rng:NextNumber(0, r * 0.6)
+		-- kulübenin olduğu sırt orta noktasından uzak dur
+		local hutP = Layout.arcPoint(cfg, f, 0) + f.back * 6
+		if (q - hutP).Magnitude > 14 then
+			local gy = Util.groundY(q.X, q.Z)
+			if gy and gy > 4 and gy < 8 then
+				Decor.palm(model, Vector3.new(q.X, g, q.Z), rng)
+			end
+		end
+	end
+end
+
+function Islands.Build(cfg)
+	local folder = Util.fresh("Folder", "PrivateIslands")
+	for i = 1, cfg.Ring.count do
+		local f = Layout.frame(cfg, i)
+		local rng = Random.new(cfg.Seed * 100 + i)
+		local model = Instance.new("Model")
+		model.Name = "Island" .. i
+		model:SetAttribute("Index", i)
+		-- havuz bölgesi: ağın içinde kalan su
+		local poolCenter = f.bay + f.u * 2
+		local pool = Util.zone(model, "Pool", Vector3.new(50, 10, 50), CFrame.lookAt(Vector3.new(poolCenter.X, -5, poolCenter.Z), Vector3.new(poolCenter.X + f.u.X, -5, poolCenter.Z + f.u.Z)))
+		Util.billboard(pool, "FISH POOL", 12, 160)
+		pool.CanQuery = true
+		net(model, cfg, f)
+		local d = dock(model, cfg, f)
+		hut(model, cfg, f, i)
+		trees(model, cfg, f, rng)
+		model.PrimaryPart = pool
+		model.Parent = folder
+		if i % 3 == 0 then
+			task.wait()
+		end
+	end
+	return folder
+end
+
+-- Balık noktaları: kanal (Near), halka dışı (Mid) ve açık deniz (Far)
+function Islands.Spots(cfg)
+	local folder = Util.fresh("Folder", "FishingSpots")
+	local colors = { Near = Color3.fromRGB(120, 235, 160), Mid = Color3.fromRGB(255, 214, 120), Far = Color3.fromRGB(255, 130, 130) }
+	for kind, s in cfg.Spots do
+		for i = 1, s.count do
+			local a = math.rad(s.offset + (i - 1) * 360 / s.count)
+			local x, z = math.cos(a) * s.radius, math.sin(a) * s.radius
+			local p = Util.cyl(folder, kind .. i, 0.4, 24, CFrame.new(x, 0.3, z) * CFrame.Angles(0, 0, math.pi / 2), colors[kind], Enum.Material.Neon)
+			p.Transparency = 0.7
+			p.CanCollide = false
+			p.CanQuery = false
+			p:SetAttribute("SpotType", kind)
+			p:SetAttribute("Ocean", "Warm")
+			Util.billboard(p, kind == "Near" and "Near" or (kind == "Mid" and "Mid" or "Far"), 6, 70)
+		end
+	end
+	return folder
+end
+
+return Islands

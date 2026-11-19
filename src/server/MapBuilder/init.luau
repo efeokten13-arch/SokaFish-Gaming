@@ -25,6 +25,30 @@ function Builder.Land()
 	local c = cfg()
 	local Land = require(script.Land)
 	Land.islands(c)
+	Land.rocks(c)
+end
+
+-- Ana ada: plaza, Fish Market, tekne dükkanı, iskele, kulübeler
+function Builder.Structures()
+	local c = cfg()
+	local S = require(script.Structures)
+	S.Plaza(c)
+	S.Hall(c)
+	S.Pier(c)
+	S.Props(c)
+end
+
+-- Başlangıç kayığı (Pier.BoatSpawn önünde)
+function Builder.Kayak()
+	require(script.Kayak).Build(cfg())
+end
+
+-- 12 özel ada + balık noktaları
+function Builder.Islands()
+	local c = cfg()
+	local I = require(script.Islands)
+	I.Build(c)
+	I.Spots(c)
 end
 
 return Builder
