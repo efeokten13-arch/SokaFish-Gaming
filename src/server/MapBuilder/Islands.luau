@@ -4,6 +4,7 @@ local Workspace = game:GetService("Workspace")
 local Util = require(script.Parent.Util)
 local Layout = require(script.Parent.Layout)
 local Decor = require(script.Parent.Decor)
+local Land = require(script.Parent.Land)
 
 local Islands = {}
 
@@ -105,6 +106,88 @@ local function hut(model, cfg, f, i)
 	return h
 end
 
+-- Oyuncunun ışınlanacağı yer ve adanın üstündeki sahip yazısı
+local function spawnPoint(model, cfg, f)
+	local old = model:FindFirstChild("Spawn")
+	if old then
+		old:Destroy()
+	end
+	local p = Layout.arcPoint(cfg, f, 0.35)
+	local part = Util.zone(model, "Spawn", Vector3.new(6, 1, 6), CFrame.new(p.X, cfg.GrassY + 0.5, p.Z))
+	local gui = Util.billboard(part, "FREE ISLAND", 9, 220)
+	gui.Name = "OwnerLabel"
+	gui.MaxDistance = 220
+	return part
+end
+
+-- Toprak patikalar: iskeleden hilal boyunca kulübeye, kulübenin önü ve öteki boynuza
+local function paths(cfg, f)
+	local DIRT = Enum.Material.Ground
+	local hutP = Layout.arcPoint(cfg, f, 0) + f.back * 6
+	Land.paintDisc(hutP.X, hutP.Z, 10, DIRT)
+	local t = 1.0
+	while t >= -0.85 do
+		local p = Layout.arcPoint(cfg, f, t)
+		Land.paintDisc(p.X, p.Z, 3, DIRT)
+		t -= 0.05
+	end
+	-- kulübeden havuz kıyısına kısa yol
+	local shore = Layout.arcPoint(cfg, f, 0) + f.u * 10
+	Land.path(hutP, shore, 2.5, DIRT)
+end
+
+function Islands.AddPaths(cfg)
+	for i = 1, cfg.Ring.count do
+		paths(cfg, Layout.frame(cfg, i))
+		task.wait()
+	end
+end
+
+-- Kulübenin önünde koleksiyon kitabı kürsüsü (BookService "Open" düğmesi ekler)
+local function book(model, cfg, f)
+	local old = model:FindFirstChild("Lectern")
+	if old then
+		old:Destroy()
+	end
+	local g = cfg.GrassY
+	local hutP = Layout.arcPoint(cfg, f, 0) + f.back * 6
+	local pos = hutP + f.u * 10 + Vector3.new(-f.u.Z, 0, f.u.X) * 3.5
+	local cf = CFrame.lookAt(v3(pos, g), v3(pos, g) - f.u)
+	local m = Instance.new("Model")
+	m.Name = "Lectern"
+	Util.part(m, "Stand", Vector3.new(1, 3.4, 1), cf * CFrame.new(0, 1.7, 0), DARK, Enum.Material.Wood)
+	Util.part(m, "Foot", Vector3.new(2.4, 0.4, 2), cf * CFrame.new(0, 0.2, 0), DARK, Enum.Material.Wood)
+	Util.part(m, "Top", Vector3.new(2.8, 0.3, 2.2), cf * CFrame.new(0, 3.5, 0) * CFrame.Angles(math.rad(-25), 0, 0), WOOD, Enum.Material.WoodPlanks)
+	local bk = Util.part(m, "Book", Vector3.new(2.2, 0.35, 1.6), cf * CFrame.new(0, 3.75, 0) * CFrame.Angles(math.rad(-25), 0, 0), Color3.fromRGB(150, 45, 40), Enum.Material.Fabric)
+	Util.part(m, "Pages", Vector3.new(2, 0.1, 1.4), cf * CFrame.new(0, 3.95, -0.05) * CFrame.Angles(math.rad(-25), 0, 0), Color3.fromRGB(245, 238, 215), Enum.Material.Plastic)
+	local tag = Util.billboard(bk, "COLLECTION BOOK", 2.5, 170)
+	tag.MaxDistance = 60
+	m.PrimaryPart = bk
+	m.Parent = model
+	return m
+end
+
+function Islands.AddBooks(cfg)
+	local folder = Workspace:FindFirstChild("PrivateIslands")
+	for i = 1, cfg.Ring.count do
+		local model = folder and folder:FindFirstChild("Island" .. i)
+		if model then
+			book(model, cfg, Layout.frame(cfg, i))
+		end
+	end
+end
+
+-- Var olan adalara Spawn ekler (adaları yeniden kurmadan)
+function Islands.AddSpawns(cfg)
+	local folder = Workspace:FindFirstChild("PrivateIslands")
+	for i = 1, cfg.Ring.count do
+		local model = folder and folder:FindFirstChild("Island" .. i)
+		if model then
+			spawnPoint(model, cfg, Layout.frame(cfg, i))
+		end
+	end
+end
+
 local function trees(model, cfg, f, rng)
 	local g = cfg.GrassY
 	for k = 1, 5 do
@@ -139,7 +222,10 @@ function Islands.Build(cfg)
 		pool.CanQuery = true
 		net(model, cfg, f)
 		local d = dock(model, cfg, f)
+		paths(cfg, f)
 		hut(model, cfg, f, i)
+		book(model, cfg, f)
+		spawnPoint(model, cfg, f)
 		trees(model, cfg, f, rng)
 		model.PrimaryPart = pool
 		model.Parent = folder

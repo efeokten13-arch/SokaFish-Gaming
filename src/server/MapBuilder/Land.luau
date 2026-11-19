@@ -68,26 +68,33 @@ function Land.islands(cfg)
 	end
 end
 
--- Zemin boyaması: yüksekliği değiştirmez, sadece çimi başka malzemeyle değiştirir (şeritler halinde daire)
-function Land.paintDisc(x, z, radius, mat)
+-- Zemin boyaması: yüksekliği değiştirmez, sadece malzemeyi değiştirir (from varsayılan: çim)
+function Land.paintDisc(x, z, radius, mat, from)
+	from = from or GRASS
 	local dz = -radius
 	while dz < radius do
 		local zc = dz + 2
 		local half = math.sqrt(math.max(radius * radius - zc * zc, 0))
 		if half > 1 then
 			local region = Region3.new(Vector3.new(x - half, 0, z + dz), Vector3.new(x + half, 12, z + dz + 4)):ExpandToGrid(4)
-			Terrain:ReplaceMaterial(region, 4, GRASS, mat)
+			Terrain:ReplaceMaterial(region, 4, from, mat)
 		end
 		dz += 4
 	end
 end
 
-function Land.path(p0, p1, radius, mat)
+-- Dikdörtgen boyama (binaların altı: çim yaprakları zeminden çıkmasın)
+function Land.paintRect(cx, cz, w, d, mat, from)
+	local region = Region3.new(Vector3.new(cx - w / 2, 0, cz - d / 2), Vector3.new(cx + w / 2, 12, cz + d / 2)):ExpandToGrid(4)
+	Terrain:ReplaceMaterial(region, 4, from or GRASS, mat)
+end
+
+function Land.path(p0, p1, radius, mat, from)
 	local len = (p1 - p0).Magnitude
 	local steps = math.ceil(len / 5)
 	for i = 0, steps do
 		local p = p0:Lerp(p1, i / steps)
-		Land.paintDisc(p.X, p.Z, radius, mat)
+		Land.paintDisc(p.X, p.Z, radius, mat, from)
 	end
 end
 

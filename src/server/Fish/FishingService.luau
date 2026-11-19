@@ -162,6 +162,9 @@ local function onReel(player: Player, success: any)
 	end
 
 	table.insert(data.storage, s.fishId)
+	-- koleksiyon kitabı: hangi türden kaç tane tutuldu
+	local caught = (data :: any).caught
+	caught[s.fishId] = (caught[s.fishId] or 0) + 1
 	sessions[player] = nil
 	FishingVisuals.Caught(player, s.fishId)
 	Remotes.Event("FishCaught"):FireClient(player, s.fishId)

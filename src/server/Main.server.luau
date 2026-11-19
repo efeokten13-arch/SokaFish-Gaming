@@ -8,10 +8,14 @@ local Server = script.Parent
 local services = {
 	require(Server.Data.DataService),
 	require(Server.Map.MapService),
+	require(Server.Map.TeleportService),
+	require(Server.Map.FishermanService),
 	require(Server.Boat.BoatService),
 	require(Server.Economy.SellService),
 	require(Server.Economy.PoolService),
+	require(Server.Map.BookService),
 	require(Server.Fish.FishingService),
+	require(Server.SeaMap.SeaMapService),
 }
 
 for _, s in services do

@@ -5,7 +5,8 @@
 --   Workspace
 --     FishingSpots   (Folder)  -> içinde Part'lar, her birinde Attribute: SpotType = "Near" | "Mid" | "Far", Ocean = "Warm"
 --     PrivateIslands (Folder)  -> 8 ada Model'i, her birinde "Pool" ve "Dock" Part'ı
---     MainHall       (Model)   -> içinde "SellCounter" ve "BoatShop"
+--     MainHall       (Model)   -> içinde "SellCounter"
+--     Pier           (Model)   -> "BoatShop" (kulübe), "Showroom" (satılık tekneler)
 --     Pier           (Model)   -> içinde "BoatSpawn" Part'ı
 
 local Workspace = game:GetService("Workspace")
@@ -38,22 +39,6 @@ function MapService.IsNearSpot(player: Player, spot: BasePart, maxDistance: numb
 	return (root.Position - spot.Position).Magnitude <= maxDistance
 end
 
--- Boş adayı oyuncuya ver
-function MapService.AssignIsland(player: Player): Instance?
-	local folder = Workspace:FindFirstChild("PrivateIslands")
-	if not folder then
-		return nil
-	end
-	for _, island in folder:GetChildren() do
-		if not islandOwners[island] then
-			islandOwners[island] = player
-			island:SetAttribute("OwnerUserId", player.UserId)
-			return island
-		end
-	end
-	return nil
-end
-
 function MapService.GetIsland(player: Player): Instance?
 	for island, owner in islandOwners do
 		if owner == player then
@@ -63,15 +48,50 @@ function MapService.GetIsland(player: Player): Instance?
 	return nil
 end
 
-function MapService.Init()
-	Players.PlayerAdded:Connect(function(p)
-		MapService.AssignIsland(p)
+-- Adanın üstündeki "Spawn" parçasındaki yazıyı güncelle (sahip adı veya FREE ISLAND)
+local function setOwnerLabel(island: Instance, ownerName: string?)
+	local spawnPart = island:FindFirstChild("Spawn")
+	local gui = spawnPart and spawnPart:FindFirstChild("OwnerLabel")
+	local label = gui and gui:FindFirstChildOfClass("TextLabel")
+	if label then
+		label.Text = ownerName and (ownerName .. "'s Island") or "FREE ISLAND"
+	end
+end
+
+-- Boş adayı oyuncuya ver (zaten adası varsa aynısını döndürür)
+function MapService.AssignIsland(player: Player): Instance?
+	local existing = MapService.GetIsland(player)
+	if existing then
+		return existing
+	end
+	local folder = Workspace:FindFirstChild("PrivateIslands")
+	if not folder then
+		return nil
+	end
+	-- numara sırasıyla (Island1, Island2, ...) ilk boş adayı ver
+	local list = folder:GetChildren()
+	table.sort(list, function(a, b)
+		return ((a:GetAttribute("Index") :: number?) or 0) < ((b:GetAttribute("Index") :: number?) or 0)
 	end)
+	for _, island in list do
+		if not islandOwners[island] then
+			islandOwners[island] = player
+			island:SetAttribute("OwnerUserId", player.UserId)
+			setOwnerLabel(island, player.DisplayName)
+			return island
+		end
+	end
+	return nil
+end
+
+function MapService.Init()
+	-- Ada artık otomatik verilmez: oyuncu Old Fisherman ile konuşunca alır (FishermanService)
 	Players.PlayerRemoving:Connect(function(p)
 		for island, owner in islandOwners do
 			if owner == p then
 				islandOwners[island] = nil
 				island:SetAttribute("OwnerUserId", nil)
+				setOwnerLabel(island, nil)
 			end
 		end
 	end)

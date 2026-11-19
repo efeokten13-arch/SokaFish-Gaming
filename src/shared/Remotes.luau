@@ -22,7 +22,12 @@ local EVENTS = {
 	"PoolRequest", -- client -> server: slot'taki balığı havuza koy
 	"DataUpdated", -- server -> client: para / depo / havuz değişti (DataService.Payload formatında)
 
+	-- Hareket
+	"TeleportRequest", -- client -> server: "Island" (kendi adama) | "Main" (ana adaya)
+	"GuideTarget", -- server -> client: ok'u bu Part'a çevir (part, etiket). part = nil ise ok kapanır
+
 	-- Arayüz
+	"OpenCollection", -- server -> client: koleksiyon kitabını aç (kulübedeki kitaba basınca)
 	"Notify", -- server -> client: kısa bildirim (metin, renk)
 }
 

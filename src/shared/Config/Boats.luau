@@ -5,13 +5,15 @@
 -- oceans: bu tekneyle girilebilen okyanuslar
 
 local Boats = {
-	Kayak = { displayName = "Wooden Kayak", price = 0, slots = 3, speed = 12, oceans = { "Warm" } },
-	Rowboat = { displayName = "Rowboat", price = 500, slots = 5, speed = 16, oceans = { "Warm" } },
-	Sloop = { displayName = "Sloop", price = 5000, slots = 7, speed = 22, oceans = { "Warm", "Deep" } },
+	Rowboat = { displayName = "Rowboat", price = 1, slots = 3, speed = 12, oceans = { "Warm" }, order = 1 },
+	Kayak = { displayName = "Yellow Canoe", price = 100, slots = 5, speed = 18, oceans = { "Warm" }, order = 2 },
+	Sloop = { displayName = "Sloop", price = 2500, slots = 7, speed = 22, oceans = { "Warm", "Deep" }, order = 3 },
 	Warship = { displayName = "Warship", price = 50000, slots = 9, speed = 26, oceans = { "Warm", "Deep", "Mystery" } },
 }
 
 Boats.ProtectedSlots = 1
-Boats.Starter = "Kayak"
+Boats.Starter = "Rowboat" -- slot sayısı için varsayılan; tekne artık iskeleden satın alınır
+-- İskelede sergilenen ve satılan tekneler (sırayla slip 1, 2, 3)
+Boats.ShopOrder = { "Rowboat", "Kayak", "Sloop" }
 
 return Boats

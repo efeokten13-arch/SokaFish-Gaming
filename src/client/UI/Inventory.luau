@@ -151,7 +151,7 @@ local function fishRow(index: number, fishId: string, protected: boolean)
 	priceLabel.Size = UDim2.new(0, 72, 0, 24)
 	priceLabel.Position = UDim2.new(1, -84, 0, 9)
 
-	local incomeLabel = label(row, "Income", def.perHour .. "$/sa", COLOR_MUTED, Enum.Font.Gotham)
+	local incomeLabel = label(row, "Income", def.perMinute .. "$/min", COLOR_MUTED, Enum.Font.Gotham)
 	incomeLabel.TextXAlignment = Enum.TextXAlignment.Right
 	incomeLabel.Size = UDim2.new(0, 72, 0, 16)
 	incomeLabel.Position = UDim2.new(1, -84, 0, 39)
@@ -250,6 +250,11 @@ local function buildUI()
 	pad.PaddingRight = UDim.new(0, 12)
 	pad.Parent = toggleButton
 	toggleButton.Parent = gui
+	-- ortak tasarım (Theme): küçük cam buton, sol sütunda harita butonunun altında
+	local Theme = require(script.Parent:WaitForChild("Theme"))
+	Theme.StyleRound(toggleButton, "Fish")
+	toggleButton.AnchorPoint = Vector2.new(0, 0.5)
+	toggleButton.Position = Theme.LeftColumn(-1)
 
 	-- Butonun köşesinde doluluk rozeti (dolunca kırmızı)
 	badge = Instance.new("TextLabel")
@@ -270,7 +275,7 @@ local function buildUI()
 	panel = Instance.new("Frame")
 	panel.Name = "InventoryPanel"
 	panel.AnchorPoint = Vector2.new(0, 0.5)
-	panel.Position = UDim2.new(0, 98, 0.5, 0)
+	panel.Position = UDim2.new(0, 84, 0.5, 0)
 	panel.Size = UDim2.new(0.32, 0, 0.62, 0)
 	panel.BackgroundColor3 = COLOR_BG
 	panel.BackgroundTransparency = 0.05

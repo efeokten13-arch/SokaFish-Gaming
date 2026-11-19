@@ -54,16 +54,20 @@ end
 local function makePill(name: string, width: number): (Frame, TextLabel)
 	local pill = Instance.new("Frame")
 	pill.Name = name
-	pill.Size = UDim2.fromOffset(width, 40)
-	pill.BackgroundColor3 = COLOR_PANEL
-	pill.BackgroundTransparency = 0.2
+	pill.Size = UDim2.fromOffset(width, 32)
+	pill.BackgroundColor3 = Color3.fromRGB(18, 24, 34)
+	pill.BackgroundTransparency = 0.25
 	corner(pill, UDim.new(0.5, 0))
-	stroke(pill, Color3.new(1, 1, 1), 2)
+	local st = Instance.new("UIStroke")
+	st.Color = Color3.new(1, 1, 1)
+	st.Transparency = 0.7
+	st.Thickness = 1.5
+	st.Parent = pill
 
 	local label = Instance.new("TextLabel")
 	label.Name = "Value"
-	label.Size = UDim2.new(1, -48, 1, -10)
-	label.Position = UDim2.fromOffset(40, 5)
+	label.Size = UDim2.new(1, -44, 1, -12)
+	label.Position = UDim2.fromOffset(36, 6)
 	label.BackgroundTransparency = 1
 	label.Font = Enum.Font.GothamBold
 	label.TextScaled = true
@@ -84,7 +88,7 @@ local function buildUI()
 	bar.Name = "TopBar"
 	bar.AnchorPoint = Vector2.new(0.5, 0)
 	bar.Position = UDim2.new(0.5, 0, 0, 8)
-	bar.Size = UDim2.fromOffset(330, 40)
+	bar.Size = UDim2.fromOffset(280, 32)
 	bar.BackgroundTransparency = 1
 	bar.Parent = gui
 
@@ -97,11 +101,11 @@ local function buildUI()
 
 	-- Para
 	local moneyPill
-	moneyPill, moneyLabel = makePill("Money", 180)
+	moneyPill, moneyLabel = makePill("Money", 150)
 	moneyPill.LayoutOrder = 1
 	local coin = Instance.new("Frame")
-	coin.Size = UDim2.fromOffset(24, 24)
-	coin.Position = UDim2.fromOffset(10, 8)
+	coin.Size = UDim2.fromOffset(18, 18)
+	coin.Position = UDim2.fromOffset(10, 7)
 	coin.BackgroundColor3 = COLOR_GOLD
 	corner(coin, UDim.new(0.5, 0))
 	stroke(coin, Color3.fromRGB(200, 140, 20), 2)
@@ -110,11 +114,11 @@ local function buildUI()
 	moneyPill.Parent = bar
 
 	-- Depo
-	storagePill, storageLabel = makePill("Storage", 120)
+	storagePill, storageLabel = makePill("Storage", 100)
 	storagePill.LayoutOrder = 2
 	local fishIcon = Instance.new("TextLabel")
-	fishIcon.Size = UDim2.fromOffset(28, 28)
-	fishIcon.Position = UDim2.fromOffset(8, 6)
+	fishIcon.Size = UDim2.fromOffset(22, 22)
+	fishIcon.Position = UDim2.fromOffset(8, 5)
 	fishIcon.BackgroundTransparency = 1
 	fishIcon.Text = "🐟"
 	fishIcon.TextScaled = true
@@ -126,7 +130,7 @@ local function buildUI()
 	toastHolder = Instance.new("Frame")
 	toastHolder.Name = "Toasts"
 	toastHolder.AnchorPoint = Vector2.new(0.5, 0)
-	toastHolder.Position = UDim2.new(0.5, 0, 0, 58)
+	toastHolder.Position = UDim2.new(0.5, 0, 0, 48)
 	toastHolder.Size = UDim2.fromOffset(360, 140)
 	toastHolder.BackgroundTransparency = 1
 	toastHolder.Parent = gui

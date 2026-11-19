@@ -24,7 +24,7 @@ local function setup(p, name, size, cf, color, material)
 	p.Size = size
 	p.CFrame = cf
 	p.Color = color or Color3.fromRGB(163, 162, 165)
-	p.Material = material or Enum.Material.SmoothPlastic
+	p.Material = material or Enum.Material.Plastic
 end
 
 function Util.part(parent, name, size, cf, color, material, shape)

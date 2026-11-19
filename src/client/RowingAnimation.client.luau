@@ -70,6 +70,10 @@ end
 
 RunService.RenderStepped:Connect(function(dt)
 	for _, model in ipairs(CollectionService:GetTagged("Kayak")) do
+		if model:GetAttribute("NoPaddle") then
+			if active[model] then endRowing(model) end
+			continue
+		end
 		local seat = model:FindFirstChildWhichIsA("VehicleSeat", true)
 		local hum = seat and seat.Occupant
 		local s = active[model]

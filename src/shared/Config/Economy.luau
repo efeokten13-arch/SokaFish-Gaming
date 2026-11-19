@@ -2,10 +2,10 @@
 -- Genel ekonomi ayarları. Game pass / boost'lar ileride buraya bağlanır.
 
 local Economy = {
-	StartingMoney = 0,
+	StartingMoney = 10, -- ilk kayığı ($1) hemen alabilsin
 
 	-- Havuz
-	PoolCapacity = 6, -- ada başına havuzdaki maksimum balık
+	PoolCapacity = 5, -- ada başına havuzdaki maksimum balık
 	OfflineEarningsCapHours = 8, -- offline gelir en fazla kaç saatlik birikir
 
 	-- Oltalar: luck = şans çarpanı, look = 3D model renkleri (RodModelBuilder kullanır)
@@ -51,6 +51,8 @@ local Economy = {
 
 	-- Spot'ların şans çarpanı (uzak = daha iyi balık)
 	SpotLuck = { Near = 1.0, Mid = 1.2, Far = 1.5 },
+
+	PoolTickSeconds = 10, -- havuz geliri bu aralıkla eklenir (saniye)
 
 	-- Kayıt
 	AutosaveSeconds = 60,

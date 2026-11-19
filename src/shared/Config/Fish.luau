@@ -1,7 +1,7 @@
 --!strict
 -- Tüm balıklar burada. Yeni balık = yeni satır.
 -- sell: Main Hall'da satış fiyatı
--- perHour: havuzda tutulunca saatlik gelir
+-- perMinute: havuzda tutulunca dakikalık gelir
 -- ocean: hangi okyanusta çıkar
 -- spots: hangi fishing spot türlerinde çıkar ("Near", "Mid", "Far")
 -- look: 3D model görünümü (FishModelBuilder kullanır)
@@ -26,7 +26,7 @@ export type FishDef = {
 	displayName: string,
 	rarity: string,
 	sell: number,
-	perHour: number,
+	perMinute: number,
 	ocean: string,
 	spots: { string },
 	look: FishLook,
@@ -37,7 +37,7 @@ local Fish: { [string]: FishDef } = {
 		displayName = "Cod",
 		rarity = "Common",
 		sell = 5,
-		perHour = 1,
+		perMinute = 1,
 		ocean = "Warm",
 		spots = { "Near", "Mid", "Far" },
 		look = {
@@ -52,7 +52,7 @@ local Fish: { [string]: FishDef } = {
 		displayName = "Mackerel",
 		rarity = "Common",
 		sell = 8,
-		perHour = 2,
+		perMinute = 2,
 		ocean = "Warm",
 		spots = { "Near", "Mid" },
 		look = {
@@ -68,7 +68,7 @@ local Fish: { [string]: FishDef } = {
 		displayName = "Sea Bass",
 		rarity = "Uncommon",
 		sell = 25,
-		perHour = 6,
+		perMinute = 6,
 		ocean = "Warm",
 		spots = { "Mid", "Far" },
 		look = {
@@ -84,7 +84,7 @@ local Fish: { [string]: FishDef } = {
 		displayName = "Pufferfish",
 		rarity = "Rare",
 		sell = 90,
-		perHour = 25,
+		perMinute = 25,
 		ocean = "Warm",
 		spots = { "Mid", "Far" },
 		look = {
@@ -100,7 +100,7 @@ local Fish: { [string]: FishDef } = {
 		displayName = "Swordfish",
 		rarity = "Epic",
 		sell = 400,
-		perHour = 120,
+		perMinute = 120,
 		ocean = "Warm",
 		spots = { "Far" },
 		look = {
@@ -117,7 +117,7 @@ local Fish: { [string]: FishDef } = {
 		displayName = "Golden Marlin",
 		rarity = "Legendary",
 		sell = 2500,
-		perHour = 800,
+		perMinute = 800,
 		ocean = "Warm",
 		spots = { "Far" },
 		look = {

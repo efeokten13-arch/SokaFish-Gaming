@@ -2,7 +2,8 @@
 -- Canlı oyunda hiçbir şey yapmaz. İşi bitince bu dosyayı silebilirsiniz.
 
 local RunService = game:GetService("RunService")
-if not RunService:IsStudio() then
+local ENABLED = false -- giriş yerinde balık modellerini göstermek için true yapın
+if not ENABLED or not RunService:IsStudio() then
 	return
 end
 
