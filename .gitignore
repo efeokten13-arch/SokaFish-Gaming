@@ -1,0 +1,14 @@
+# Roblox place files (the map lives in Team Create, not in Git)
+*.rbxl
+*.rbxlx
+*.rbxl.lock
+*.rbxlx.lock
+
+# Secrets: never commit keys or passwords
+.env
+*.key
+meshy_output/
+
+# macOS / editors
+.DS_Store
+.vscode/
