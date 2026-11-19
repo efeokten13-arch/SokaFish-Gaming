@@ -1,15 +1,30 @@
 --!strict
--- Oyuncu verisi: yükle, kaydet, eriş.
+-- Oyuncu verisi: yükle, kaydet, eriş, client'a gönder.
 -- Basit DataStore sürümü. İleride ProfileStore'a geçmek önerilir (session lock, veri kaybını önler).
--- NOT: Studio'da test için Game Settings -> Security -> "Enable Studio Access to API Services" açık olmalı.
+-- NOT: Studio'da kayıt için Game Settings -> Security -> "Enable Studio Access to API Services" açık olmalı.
+--      Kapalıysa oyun varsayılan veriyle çalışır, sadece kaydedilmez.
+--
+-- Client'a giden veri formatı (HUD ve envanter bunu kullanır):
+--   {
+--     money = 1250,
+--     storage = { "Cod", "SeaBass" },   -- teknedeki balık id'leri
+--     slots = 3,                        -- teknenin slot sayısı
+--     protectedSlots = 1,
+--     pool = { "Cod" },                 -- havuzdaki balık id'leri
+--     poolCapacity = 6,
+--     boat = "Kayak", rod = "BasicRod", bait = "BasicBait",
+--   }
+-- Veri değiştiren her server kodu sonunda DataService.Push(player) çağırmalı.
 
 local DataStoreService = game:GetService("DataStoreService")
 local Players = game:GetService("Players")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 
-local Config = ReplicatedStorage:WaitForChild("Shared"):WaitForChild("Config")
+local Shared = ReplicatedStorage:WaitForChild("Shared")
+local Config = Shared:WaitForChild("Config")
 local Economy = require(Config:WaitForChild("Economy"))
 local Boats = require(Config:WaitForChild("Boats"))
+local Remotes = require(Shared:WaitForChild("Remotes"))
 
 local store = DataStoreService:GetDataStore("PlayerData_v1")
 
@@ -18,8 +33,8 @@ export type PlayerData = {
 	boat: string,
 	rod: string,
 	bait: string,
-	storage: { string }, -- teknedeki balık id'leri
-	pool: { string }, -- havuzdaki balık id'leri
+	storage: { string },
+	pool: { string },
 	lastOnline: number,
 }
 
@@ -42,6 +57,39 @@ function DataService.Get(player: Player): PlayerData?
 	return cache[player]
 end
 
+-- Client'a gönderilecek kopya
+function DataService.Payload(player: Player): any
+	local data = cache[player]
+	if not data then
+		return nil
+	end
+	local boat = (Boats :: any)[data.boat]
+	return {
+		money = data.money,
+		storage = table.clone(data.storage),
+		slots = if boat then boat.slots else 3,
+		protectedSlots = Boats.ProtectedSlots,
+		pool = table.clone(data.pool),
+		poolCapacity = Economy.PoolCapacity,
+		boat = data.boat,
+		rod = data.rod,
+		bait = data.bait,
+	}
+end
+
+-- Güncel veriyi oyuncunun client'ına gönder
+function DataService.Push(player: Player)
+	local payload = DataService.Payload(player)
+	if payload then
+		Remotes.Event("DataUpdated"):FireClient(player, payload)
+	end
+end
+
+-- Oyuncuya kısa bildirim gönder (HUD gösterir)
+function DataService.Notify(player: Player, text: string, color: Color3?)
+	Remotes.Event("Notify"):FireClient(player, text, color)
+end
+
 local function load(player: Player)
 	local ok, result = pcall(function()
 		return store:GetAsync(tostring(player.UserId))
@@ -52,9 +100,10 @@ local function load(player: Player)
 			(data :: any)[k] = v
 		end
 	elseif not ok then
-		warn("Veri yüklenemedi:", player.Name, result)
+		warn("Veri yüklenemedi (Studio'da API erişimi kapalı olabilir):", player.Name, result)
 	end
 	cache[player] = data
+	DataService.Push(player)
 end
 
 local function save(player: Player)
@@ -73,6 +122,13 @@ end
 
 function DataService.Init()
 	Players.PlayerAdded:Connect(load)
+	-- Server başlamadan önce girmiş oyuncular (Studio'da sık olur)
+	for _, p in Players:GetPlayers() do
+		if not cache[p] then
+			task.spawn(load, p)
+		end
+	end
+
 	Players.PlayerRemoving:Connect(function(p)
 		save(p)
 		cache[p] = nil
@@ -82,6 +138,16 @@ function DataService.Init()
 			save(p)
 		end
 	end)
+
+	-- Client "verimi ver" derse: yüklenene kadar en fazla 10 sn bekle
+	Remotes.Function("GetPlayerData").OnServerInvoke = function(player: Player)
+		local t = 0
+		while not cache[player] and t < 10 do
+			t += task.wait(0.1)
+		end
+		return DataService.Payload(player)
+	end
+
 	task.spawn(function()
 		while true do
 			task.wait(Economy.AutosaveSeconds)

@@ -165,7 +165,7 @@ local function onReel(player: Player, success: any)
 	sessions[player] = nil
 	FishingVisuals.Caught(player, s.fishId)
 	Remotes.Event("FishCaught"):FireClient(player, s.fishId)
-	Remotes.Event("DataUpdated"):FireClient(player, data)
+	DataService.Push(player)
 end
 
 function FishingService.Init()
