@@ -20,7 +20,10 @@ local EVENTS = {
 	-- Ekonomi
 	"SellRequest", -- client -> server: slot'taki balığı sat
 	"PoolRequest", -- client -> server: slot'taki balığı havuza koy
-	"DataUpdated", -- server -> client: para / depo / havuz değişti
+	"DataUpdated", -- server -> client: para / depo / havuz değişti (DataService.Payload formatında)
+
+	-- Arayüz
+	"Notify", -- server -> client: kısa bildirim (metin, renk)
 }
 
 local FUNCTIONS = {
