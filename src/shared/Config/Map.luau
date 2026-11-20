@@ -43,7 +43,8 @@ local Map = {
 		fingers = { -71, -33, 5, 56, 94 },
 		slipZ = { -52, -14, 37, 75 }, -- tekne yuvaları (ShopOrder sırasıyla)
 	},
-	Hall = { x = -20, z = -118, width = 64, depth = 38 },
+	-- Balık pazarı: kuzey kıyısında, platform + kuzeye uzanan bağlama iskelesi (MapBuilder/IslandLife)
+	FishMarket = { x = -26, z = -185, width = 28, depth = 20, dockLength = 44 },
 	Plaza = { x = -20, z = 18, radius = 40 },
 
 	-- İşaretli balık noktası yok: açık denizin her yerinde balık tutulur (bkz. Config/Fishing.OpenWater)

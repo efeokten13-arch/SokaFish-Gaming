@@ -40,14 +40,20 @@ function Builder.RebuildMainIsland()
 	Builder.Structures()
 	Builder.Environment()
 	require(script.Nature).Vegetation(c)
+	require(script.IslandLife).All(c)
 end
 
--- Ana ada: plaza, Fish Market, tekne dükkanı, iskele, kulübeler
+-- Ana adayı canlandır: balık pazarı, tepeler, zemin, süsler, kayıkhane, kazık köpükleri, ışık
+function Builder.IslandLife()
+	require(script.IslandLife).All(cfg())
+end
+
+-- Ana ada: plaza, balık pazarı, iskele, kulübeler
 function Builder.Structures()
 	local c = cfg()
 	local S = require(script.Structures)
 	S.Plaza(c)
-	S.Hall(c)
+	require(script.IslandLife).FishMarket(c)
 	S.Pier(c)
 	S.Props(c)
 	S.Fisherman(c)

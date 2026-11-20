@@ -135,10 +135,10 @@ end
 function Nature.Vegetation(cfg)
 	local folder = Util.fresh("Folder", "Nature")
 	-- ana ada: yapılardan uzak dur
-	local P, H = cfg.Plaza, cfg.Hall
+	local P, H = cfg.Plaza, cfg.FishMarket
 	local blocks = {
 		{ P.x, P.z, P.radius + 6 },
-		{ H.x, H.z, 52 },
+		{ H.x, H.z, 46 },
 		{ cfg.Pier.startX, cfg.Pier.walkZ, 14 },
 		{ -135, 70, 16 },
 		{ -150, -60, 16 },

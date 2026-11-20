@@ -1,5 +1,5 @@
 --!nonstrict
--- Ana ada: plaza, Fish Market, tekne dükkanı, doğu iskelesi, kulübeler, süsler.
+-- Ana ada: plaza, doğu iskelesi, kulübeler, süsler. (Balık pazarı ve süslerin çoğu: IslandLife)
 local Workspace = game:GetService("Workspace")
 local Util = require(script.Parent.Util)
 local Land = require(script.Parent.Land)
@@ -35,7 +35,7 @@ function Structures.Plaza(cfg)
 	local SAND = Enum.Material.Sandstone
 	Land.path(Vector3.new(P.x + P.radius - 4, 0, P.z), Vector3.new(cfg.Pier.startX + 2, 0, cfg.Pier.walkZ), 6, SAND)
 	-- dalgalı patikalar (doğal görünüm)
-	Land.wavyPath(Vector3.new(P.x, 0, P.z - P.radius + 4), Vector3.new(cfg.Hall.x, 0, cfg.Hall.z + cfg.Hall.depth / 2 + 4), 6, SAND, 11, 4, 1)
+	Land.wavyPath(Vector3.new(P.x, 0, P.z - P.radius + 4), Vector3.new(cfg.FishMarket.x, 0, cfg.FishMarket.z + cfg.FishMarket.depth / 2 + 9), 6, SAND, 12, 4, 1)
 	for i, h in { { -135, 70 }, { -150, -60 } } do
 		local a = Vector3.new(P.x, 0, P.z)
 		local b = Vector3.new(h[1], 0, h[2] + 10)
@@ -112,108 +112,7 @@ function Structures.Plaza(cfg)
 	return f
 end
 
--- Fish Market binası + SellCounter + BoatShop
-function Structures.Hall(cfg)
-	local H = cfg.Hall
-	local m = Util.fresh("Model", "MainHall")
-	local g = cfg.GrassY
-	local wallH = 13
-	local cx, cz = H.x, H.z
-	local w, d = H.width, H.depth
-	Land.paintRect(cx, cz, w + 34, d + 30, Enum.Material.Ground)
-
-	Util.part(m, "Foundation", Vector3.new(w + 6, 1.2, d + 6), CFrame.new(cx, g + 0.4, cz), STONE, Enum.Material.Cobblestone)
-	local fy = g + 1 -- zemin üstü
-	-- arka ve yan duvarlar
-	Util.part(m, "WallBack", Vector3.new(w, wallH, 1.5), CFrame.new(cx, fy + wallH / 2, cz - d / 2), WALL, WALLMAT)
-	Util.part(m, "WallWest", Vector3.new(1.5, wallH, d), CFrame.new(cx - w / 2, fy + wallH / 2, cz), WALL, WALLMAT)
-	Util.part(m, "WallEast", Vector3.new(1.5, wallH, d), CFrame.new(cx + w / 2, fy + wallH / 2, cz), WALL, WALLMAT)
-	-- ön cephe: ortada 16 stud'luk geniş kapı
-	local gate = 18
-	local sideW = (w - gate) / 2
-	Util.part(m, "WallFrontL", Vector3.new(sideW, wallH, 1.5), CFrame.new(cx - gate / 2 - sideW / 2, fy + wallH / 2, cz + d / 2), WALL, WALLMAT)
-	Util.part(m, "WallFrontR", Vector3.new(sideW, wallH, 1.5), CFrame.new(cx + gate / 2 + sideW / 2, fy + wallH / 2, cz + d / 2), WALL, WALLMAT)
-	Util.part(m, "Lintel", Vector3.new(gate, 4, 1.5), CFrame.new(cx, fy + wallH - 2, cz + d / 2), WALL, WALLMAT)
-	-- ahşap kirişler
-	for _, x in { -w / 2, -gate / 2, gate / 2, w / 2 } do
-		Util.part(m, "Post", Vector3.new(1.6, wallH, 1.8), CFrame.new(cx + x, fy + wallH / 2, cz + d / 2 + 0.4), DARK, Enum.Material.Wood)
-	end
-	-- çatı: iki eğik tahta + alınlık basamakları
-	local rise = 10
-	local half = d / 2
-	local ang = math.atan2(rise, half)
-	local len = math.sqrt(half * half + rise * rise) + 3
-	local topY = fy + wallH
-	for _, s in { -1, 1 } do
-		local board = Util.part(m, "Roof", Vector3.new(w + 6, 1.2, len),
-			CFrame.new(cx, topY + rise / 2 + 0.6, cz + s * (half / 2 - 0.5)) * CFrame.Angles(s * ang, 0, 0), ROOF, Enum.Material.Slate)
-		board.Name = "Roof"
-	end
-	local steps = 6
-	for k = 0, steps - 1 do
-		local sw = d * (1 - (k + 0.5) / steps)
-		local sh = rise / steps
-		for _, sx in { -w / 2, w / 2 } do
-			Util.part(m, "Gable", Vector3.new(1.5, sh + 0.05, sw), CFrame.new(cx + sx, topY + sh * (k + 0.5), cz), WALL, WALLMAT)
-		end
-	end
-	-- Fish Market tabelası
-	local board = Util.part(m, "SignBoard", Vector3.new(30, 6, 1), CFrame.new(cx, topY + 2.5, cz + d / 2 + 2.2), Color3.fromRGB(40, 90, 120), Enum.Material.WoodPlanks)
-	Util.sign(board, Enum.NormalId.Back, "FISH MARKET", CREAM)
-	Util.light(board, 0.6, 24)
-	-- İç zemin
-	Util.part(m, "Floor", Vector3.new(w - 2, 0.4, d - 2), CFrame.new(cx, fy + 0.2, cz), Color3.fromRGB(158, 120, 84), Enum.Material.WoodPlanks)
-	-- SellCounter: girişin içinde tezgah
-	local counter = Util.part(m, "SellCounter", Vector3.new(26, 4, 4), CFrame.new(cx, fy + 2.4, cz - d / 2 + 9), WOOD, Enum.Material.WoodPlanks)
-	Util.part(m, "CounterTop", Vector3.new(27, 0.6, 5), CFrame.new(cx, fy + 4.7, cz - d / 2 + 9), DARK, Enum.Material.Wood)
-	local cs = Util.part(m, "CounterSign", Vector3.new(10, 3, 0.4), CFrame.new(cx, fy + 8.4, cz - d / 2 + 2), Color3.fromRGB(40, 90, 120), Enum.Material.WoodPlanks)
-	Util.sign(cs, Enum.NormalId.Back, "SELL FISH", CREAM)
-	-- balık tezgahları (süs)
-	for _, sx in { -22, 22 } do
-		Util.part(m, "Stall", Vector3.new(10, 3, 5), CFrame.new(cx + sx, fy + 1.7, cz + 2), WOOD, Enum.Material.WoodPlanks)
-		Util.part(m, "StallIce", Vector3.new(9, 0.4, 4), CFrame.new(cx + sx, fy + 3.4, cz + 2), Color3.fromRGB(210, 238, 250), Enum.Material.Ice)
-	end
-	Util.light(Util.zone(m, "Lamp1", Vector3.new(1, 1, 1), CFrame.new(cx, topY - 2, cz)), 1.4, 60)
-	-- detaylar: yatay kalaslar, çatı mahyası ve kenar kirişleri, pencereler, tente, fenerler
-	local frontZ = cz + d / 2 + 0.8
-	for _, hy in { 3.2, 7.2, 11.2 } do
-		Util.part(m, "Trim", Vector3.new(w + 0.4, 0.5, 0.3), CFrame.new(cx, fy + hy, frontZ - 0.05), DARK, Enum.Material.Wood)
-	end
-	Util.part(m, "Ridge", Vector3.new(w + 7, 1, 1.4), CFrame.new(cx, topY + rise + 0.9, cz), DARK, Enum.Material.Wood)
-	for _, s in { -1, 1 } do
-		Util.part(m, "Eave", Vector3.new(w + 7, 0.6, 0.6), CFrame.new(cx, topY + 0.3, cz + s * (half + 1.3)), DARK, Enum.Material.Wood)
-	end
-	for _, sx in { -1, 1 } do
-		local wx = cx + sx * (gate / 2 + sideW / 2)
-		Util.part(m, "WindowFrame", Vector3.new(7, 5, 0.4), CFrame.new(wx, fy + 6.5, frontZ + 0.1), DARK, Enum.Material.Wood)
-		Util.part(m, "Window", Vector3.new(6, 4, 0.3), CFrame.new(wx, fy + 6.5, frontZ + 0.25), Color3.fromRGB(150, 205, 230), Enum.Material.Glass).Transparency = 0.3
-		Util.part(m, "Sill", Vector3.new(7.6, 0.4, 1.2), CFrame.new(wx, fy + 3.9, frontZ + 0.6), DARK, Enum.Material.Wood)
-		-- pencere altı çiçek kutusu
-		Util.part(m, "FlowerBox", Vector3.new(6.4, 1, 1), CFrame.new(wx, fy + 3.3, frontZ + 0.7), Color3.fromRGB(120, 80, 48), Enum.Material.WoodPlanks)
-		for k = -2, 2 do
-			Util.noCollide(Util.ball(m, "Blossom", Vector3.new(1, 0.8, 1), CFrame.new(wx + k * 1.2, fy + 4, frontZ + 0.7), k % 2 == 0 and Color3.fromRGB(235, 70, 90) or Color3.fromRGB(250, 200, 60), Enum.Material.Fabric))
-		end
-		-- kapı yanı fener
-		local lx = cx + sx * (gate / 2 + 1.6)
-		Util.part(m, "LanternArm", Vector3.new(0.3, 0.3, 1.6), CFrame.new(lx, fy + 9.5, frontZ + 0.8), Color3.fromRGB(50, 50, 55), Enum.Material.Metal)
-		local lan = Util.part(m, "Lantern", Vector3.new(1, 1.4, 1), CFrame.new(lx, fy + 8.7, frontZ + 1.5), Color3.fromRGB(255, 210, 130), Enum.Material.Glass)
-		lan.Transparency = 0.2
-		Util.light(lan, 0.9, 16)
-	end
-	-- çizgili tente
-	for k = 0, 5 do
-		local col = k % 2 == 0 and Color3.fromRGB(196, 60, 50) or Color3.fromRGB(245, 240, 228)
-		Util.part(m, "Awning", Vector3.new(gate / 6, 0.25, 4), CFrame.new(cx - gate / 2 + gate / 12 + k * gate / 6, fy + 10.2, frontZ + 2) * CFrame.Angles(math.rad(18), 0, 0), col, Enum.Material.Fabric)
-	end
-	-- girişte balık sandıkları
-	for k, sx in { -12, -9, 9, 12 } do
-		local c = Util.part(m, "FishCrate", Vector3.new(2.6, 1.4, 2.2), CFrame.new(cx + sx, g + 1.9, frontZ + 4) * CFrame.Angles(0, math.rad(k * 7), 0), Color3.fromRGB(150, 104, 62), Enum.Material.WoodPlanks)
-		Util.part(m, "Ice", Vector3.new(2.3, 0.3, 1.9), c.CFrame * CFrame.new(0, 0.7, 0), Color3.fromRGB(215, 240, 250), Enum.Material.Ice)
-	end
-
-	m.PrimaryPart = counter
-	return m
-end
+-- (Eski Fish Market salonu kaldırıldı: yeni balık pazarı kıyıda, MapBuilder/IslandLife.FishMarket)
 
 -- Old Fisherman: plazanın yanında duran NPC. Ona konuşan oyuncu ada alır (FishermanService).
 function Structures.Fisherman(cfg)
@@ -391,21 +290,49 @@ function Structures.Props(cfg)
 		Land.paintDisc(x, z, 11, Enum.Material.Ground)
 		Util.part(f, "HutBase", Vector3.new(16, 1, 14), CFrame.new(x, g + 0.5, z), STONE, Enum.Material.Cobblestone)
 		Util.part(f, "HutWalls", Vector3.new(14, 8, 12), CFrame.new(x, g + 5, z), Color3.fromRGB(190, 150, 104), Enum.Material.WoodPlanks)
-		Util.part(f, "HutRoof", Vector3.new(17, 1, 15), CFrame.new(x, g + 9.5, z), Color3.fromRGB(176, 84, 60), Enum.Material.Slate)
+		-- çatı: iki eğim, 2 stud saçak, mahya, kirişler, baca
+		local rise, half = 4, 8 -- yarı derinlik + saçak
+		local ang = math.atan2(rise, 6)
+		local slope = half / math.cos(ang)
+		for _, sz in { -1, 1 } do
+			local midY = g + 9 + rise - math.tan(ang) * half / 2 + 0.3
+			Util.part(f, "HutRoof", Vector3.new(18, 0.7, slope), CFrame.new(x, midY, z + sz * half / 2) * CFrame.Angles(sz * ang, 0, 0), Color3.fromRGB(176, 84, 60), Enum.Material.Slate)
+			for _, rx in { -8, -4, 0, 4, 8 } do
+				Util.part(f, "HutRafter", Vector3.new(0.5, 0.5, 2.4), CFrame.new(x + rx, g + 8.6, z + sz * 7), DARK, Enum.Material.Wood).CanCollide = false
+			end
+			for _, sx in { -1, 1 } do
+				local gw = Instance.new("WedgePart")
+				gw.Name = "HutGable"
+				gw.Anchored = true
+				gw.Size = Vector3.new(0.6, rise, 6)
+				gw.CFrame = CFrame.new(x + sx * 7, g + 9 + rise / 2, z + sz * 3) * CFrame.Angles(0, sz == 1 and math.pi or 0, 0)
+				gw.Color = Color3.fromRGB(190, 150, 104)
+				gw.Material = Enum.Material.WoodPlanks
+				gw.Parent = f
+			end
+		end
+		Util.part(f, "HutRidge", Vector3.new(18.6, 0.7, 1), CFrame.new(x, g + 9 + rise + 0.35, z), DARK, Enum.Material.Wood)
+		Util.part(f, "HutChimney", Vector3.new(1.8, 4.5, 1.8), CFrame.new(x - 4.5, g + 12.5, z - 2.5), Color3.fromRGB(130, 120, 112), Enum.Material.Cobblestone)
+		-- köşe direkleri, kapı ve pencere çerçeveleri
+		for _, sx in { -1, 1 } do
+			for _, sz in { -1, 1 } do
+				Util.part(f, "HutPost", Vector3.new(1.1, 8.6, 1.1), CFrame.new(x + sx * 7, g + 5.3, z + sz * 6), DARK, Enum.Material.Wood)
+			end
+		end
 		local door = Util.part(f, "HutDoor", Vector3.new(3, 5, 0.4), CFrame.new(x, g + 3.5, z + 6.1), DARK, Enum.Material.Wood)
+		Util.part(f, "HutDoorFrame", Vector3.new(4, 0.5, 0.8), CFrame.new(x, g + 6.2, z + 6.2), Color3.fromRGB(70, 48, 30), Enum.Material.Wood)
+		for _, dx in { -1.8, 1.8 } do
+			Util.part(f, "HutDoorFrame", Vector3.new(0.5, 5.2, 0.8), CFrame.new(x + dx, g + 3.6, z + 6.2), Color3.fromRGB(70, 48, 30), Enum.Material.Wood)
+		end
 		Util.part(f, "HutWindow", Vector3.new(3, 3, 0.4), CFrame.new(x + 4.5, g + 6, z + 6.1), Color3.fromRGB(150, 210, 235), Enum.Material.Glass)
+		Util.part(f, "HutWindowFrame", Vector3.new(3.8, 3.8, 0.3), CFrame.new(x + 4.5, g + 6, z + 6.05), Color3.fromRGB(70, 48, 30), Enum.Material.Wood)
+		Util.part(f, "HutSill", Vector3.new(4.2, 0.4, 1), CFrame.new(x + 4.5, g + 4.2, z + 6.4), Color3.fromRGB(70, 48, 30), Enum.Material.Wood)
 		Decor.crate(f, Vector3.new(x - 8, g, z + 8), rng:NextNumber(0, 3))
 		Decor.barrel(f, Vector3.new(x + 8, g, z + 8))
 	end
 	-- ağ askıları
 	Decor.netRack(f, Vector3.new(-120, g, 120), Vector3.new(-96, g, 120), 9)
 	Decor.netRack(f, Vector3.new(60, g, 100), Vector3.new(84, g, 100), 9)
-	-- salon çevresi
-	for k = 0, 5 do
-		Decor.crate(f, Vector3.new(cfg.Hall.x - 36 - (k % 2) * 3.4, g, cfg.Hall.z + 26 + math.floor(k / 2) * 3.4), rng:NextNumber(0, 3))
-	end
-	Decor.barrel(f, Vector3.new(cfg.Hall.x + 36, g, cfg.Hall.z + 24))
-	Decor.barrel(f, Vector3.new(cfg.Hall.x + 39, g, cfg.Hall.z + 24))
 	-- palmiyeler (plaza, salon ve iskele yolundan uzak)
 	local placed, tries = 0, 0
 	while placed < 26 and tries < 400 do
@@ -415,7 +342,7 @@ function Structures.Props(cfg)
 		local x, z = math.cos(a) * r, math.sin(a) * r
 		local okFar = true
 		if (Vector2.new(x, z) - Vector2.new(cfg.Plaza.x, cfg.Plaza.z)).Magnitude < cfg.Plaza.radius + 8 then okFar = false end
-		if math.abs(x - cfg.Hall.x) < cfg.Hall.width / 2 + 30 and math.abs(z - cfg.Hall.z) < cfg.Hall.depth / 2 + 30 then okFar = false end
+		if (Vector2.new(x, z) - Vector2.new(cfg.FishMarket.x, cfg.FishMarket.z)).Magnitude < 50 then okFar = false end
 		if z > 8 and z < 28 and x > 0 then okFar = false end -- iskele yolu
 		local gy = Util.groundY(x, z)
 		if okFar and gy and gy > 4 and gy < 8 then

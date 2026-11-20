@@ -1,5 +1,5 @@
 --!strict
--- Fish Market'teki SellCounter: tekne deposundaki balıkları sat.
+-- Kıyıdaki balık pazarının SellCounter'ları: tekne deposundaki balıkları sat.
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local Workspace = game:GetService("Workspace")
 local Fish = require(ReplicatedStorage:WaitForChild("Shared"):WaitForChild("Config"):WaitForChild("Fish"))
@@ -35,22 +35,33 @@ local function sellAll(player: Player)
 	DataService.Push(player)
 end
 
+local function hook(counter: Instance)
+	if not counter:IsA("BasePart") or counter.Name ~= "SellCounter" or counter:FindFirstChild("SellPrompt") then
+		return
+	end
+	local prompt = Instance.new("ProximityPrompt")
+	prompt.Name = "SellPrompt"
+	prompt.ActionText = "Sell all fish"
+	prompt.ObjectText = "Fish Market"
+	prompt.HoldDuration = 0.4
+	prompt.MaxActivationDistance = 12
+	prompt.RequiresLineOfSight = false
+	prompt.Parent = counter
+	prompt.Triggered:Connect(sellAll)
+end
+
+-- Kıyıdaki balık pazarı (Workspace.FishMarket): ada tarafında ve iskele tarafında birer SellCounter
 function SellService.Init()
 	task.spawn(function()
-		local hall = Workspace:WaitForChild("MainHall", 60)
-		local counter = hall and hall:WaitForChild("SellCounter", 10) :: BasePart?
-		if not counter then
-			warn("[SellService] MainHall.SellCounter yok")
+		local market = Workspace:WaitForChild("FishMarket", 60)
+		if not market then
+			warn("[SellService] Workspace.FishMarket yok (MapBuilder.IslandLife ile kurulmalı)")
 			return
 		end
-		local prompt = Instance.new("ProximityPrompt")
-		prompt.ActionText = "Sell all fish"
-		prompt.ObjectText = "Fish Market"
-		prompt.HoldDuration = 0.4
-		prompt.MaxActivationDistance = 12
-		prompt.RequiresLineOfSight = false
-		prompt.Parent = counter
-		prompt.Triggered:Connect(sellAll)
+		for _, d in market:GetDescendants() do
+			hook(d)
+		end
+		market.DescendantAdded:Connect(hook)
 	end)
 end
 

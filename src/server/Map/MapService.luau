@@ -5,7 +5,7 @@
 --   Workspace
 --     FishingSpots   (Folder)  -> içinde Part'lar, her birinde Attribute: SpotType = "Near" | "Mid" | "Far", Ocean = "Warm"
 --     PrivateIslands (Folder)  -> 8 ada Model'i, her birinde "Pool" ve "Dock" Part'ı
---     MainHall       (Model)   -> içinde "SellCounter"
+--     FishMarket     (Model)   -> içinde "SellCounter" (ada ve iskele tarafında)
 --     Pier           (Model)   -> "BoatShop" (kulübe), "Showroom" (satılık tekneler)
 --     Pier           (Model)   -> içinde "BoatSpawn" Part'ı
 

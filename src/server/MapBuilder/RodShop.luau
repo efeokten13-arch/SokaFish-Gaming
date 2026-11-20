@@ -9,6 +9,7 @@ local ServerStorage = game:GetService("ServerStorage")
 local Util = require(script.Parent.Util)
 local Land = require(script.Parent.Land)
 local Decor = require(script.Parent.Decor)
+local Props = require(script.Parent.Props)
 local Economy = require(ReplicatedStorage.Shared.Config.Economy:Clone())
 local RodModelBuilder = require(ReplicatedStorage.Shared.RodModelBuilder)
 
@@ -63,6 +64,13 @@ local function display(f, cf, rodId)
 	local strip = Util.part(m, "RarityStrip", Vector3.new(4.2, 0.35, 0.36), cf * CFrame.new(0, 14.0, 0), rarityColor, Enum.Material.Neon)
 	strip.CanCollide = false
 	Util.part(m, "Peg", Vector3.new(0.3, 0.3, 0.8), cf * CFrame.new(0, 4.6, -0.5), Color3.fromRGB(70, 50, 30), Enum.Material.Wood)
+	-- 3D raf: yan çerçeveler, üst başlık, alt sehpa (pano düz kalmasın)
+	for _, sx in { -2.3, 2.3 } do
+		Util.part(m, "RackSide", Vector3.new(0.45, 11.2, 1.7), cf * CFrame.new(sx, 8.9, -0.65), Color3.fromRGB(110, 76, 46), Enum.Material.Wood)
+	end
+	Util.part(m, "RackTop", Vector3.new(5.1, 0.5, 2), cf * CFrame.new(0, 14.6, -0.8), Color3.fromRGB(110, 76, 46), Enum.Material.Wood)
+	Util.part(m, "RackShelf", Vector3.new(4.6, 0.35, 1.6), cf * CFrame.new(0, 3.62, -0.75), Color3.fromRGB(110, 76, 46), Enum.Material.Wood)
+	Props.deco(Util.part(m, "RackGlass", Vector3.new(4.15, 10.4, 0.1), cf * CFrame.new(0, 9.1, -1.45), Color3.fromRGB(200, 230, 245), Enum.Material.Glass), false).Transparency = 0.85
 
 	-- olta (dik, ucu yukarı)
 	local len = def.length * 1.35 -- vitrinde elde olduğundan büyük görünür
@@ -106,7 +114,11 @@ local function display(f, cf, rodId)
 	rod.Parent = m
 
 	-- bilgi plakası
-	local plaque = Util.part(m, "Plaque", Vector3.new(4.2, 2.9, 0.3), cf * CFrame.new(0, 2.0, -0.05), Color3.fromRGB(60, 42, 28), Enum.Material.Wood)
+	local plaque = Util.part(m, "Plaque", Vector3.new(4.2, 2.9, 0.3), cf * CFrame.new(0, 2.0, -0.35), Color3.fromRGB(60, 42, 28), Enum.Material.Wood)
+	Util.part(m, "PlaqueFrame", Vector3.new(4.8, 3.4, 0.3), cf * CFrame.new(0, 2.0, -0.1), Color3.fromRGB(140, 100, 56), Enum.Material.Wood)
+	for _, sx in { -1.9, 1.9 } do
+		Props.deco(Util.part(m, "Nail", Vector3.new(0.2, 0.2, 0.1), cf * CFrame.new(sx, 3.25, -0.52), Color3.fromRGB(200, 160, 70), Enum.Material.Metal), false)
+	end
 	local g = Instance.new("SurfaceGui")
 	g.Face = Enum.NormalId.Front
 	g.SizingMode = Enum.SurfaceGuiSizingMode.PixelsPerStud
@@ -161,7 +173,7 @@ local function merchant(f, cf)
 	npc.Parent = f
 	local head = npc:FindFirstChild("Head") or root
 	if head then
-		Util.billboard(head, "Rod Merchant", 2.4, 200)
+		Util.billboard(head, "Rod Merchant", 2.4, 200).MaxDistance = 40
 	end
 	return npc
 end
@@ -217,9 +229,40 @@ function RodShop.Build(cfg)
 	-- zemin
 	Util.part(f, "Foundation", Vector3.new(W + 2, 3, D + 2), at(0, F - 1.5, 0), STONE, Enum.Material.Cobblestone)
 	Util.part(f, "Floor", Vector3.new(W - 2, 0.2, D - 2), at(0, F + 0.1, 0), FLOOR, Enum.Material.WoodPlanks)
-	Util.part(f, "Step", Vector3.new(DOOR_W + 2, 1, 3), at(0, F - 0.5, -D / 2 - 2.5), STONE, Enum.Material.Cobblestone)
-	local rug = Util.part(f, "Rug", Vector3.new(12, 0.1, 9), at(0, F + 0.25, 1), Color3.fromRGB(150, 50, 45), Enum.Material.Fabric)
-	rug.CanCollide = false
+	-- desenli, püsküllü halı
+	local RUG = Color3.fromRGB(150, 50, 45)
+	Props.deco(Util.part(f, "Rug", Vector3.new(12, 0.1, 9), at(0, F + 0.25, 1), RUG, Enum.Material.Fabric), false)
+	Props.deco(Util.part(f, "RugBorder", Vector3.new(11, 0.12, 8), at(0, F + 0.27, 1), Color3.fromRGB(214, 170, 80), Enum.Material.Fabric), false)
+	Props.deco(Util.part(f, "RugInner", Vector3.new(10, 0.14, 7), at(0, F + 0.29, 1), Color3.fromRGB(40, 70, 110), Enum.Material.Fabric), false)
+	for k = -2, 2 do
+		Props.deco(Util.part(f, "RugDiamond", Vector3.new(1.4, 0.16, 1.4), at(k * 1.9, F + 0.31, 1) * CFrame.Angles(0, math.rad(45), 0), k % 2 == 0 and Color3.fromRGB(214, 170, 80) or RUG, Enum.Material.Fabric), false)
+	end
+	for _, sz in { -1, 1 } do
+		for k = -11, 11 do
+			Props.deco(Util.part(f, "Fringe", Vector3.new(0.15, 0.08, 0.7), at(k * 0.52, F + 0.24, 1 + sz * 4.85), Color3.fromRGB(235, 220, 180), Enum.Material.Fabric), false)
+		end
+	end
+
+	-- giriş sundurması: yükseltilmiş ahşap zemin, direkler, çizgili tente
+	local PZ = -D / 2 - 4.2
+	Util.part(f, "Porch", Vector3.new(DOOR_W + 10, 1, 7.4), at(0, F - 0.5, PZ + 0.5), Color3.fromRGB(150, 108, 70), Enum.Material.WoodPlanks)
+	Util.part(f, "PorchStep", Vector3.new(DOOR_W + 2, 1, 2), at(0, F - 1.5, PZ - 4), Color3.fromRGB(130, 94, 62), Enum.Material.WoodPlanks)
+	for _, sx in { -1, 1 } do
+		Util.part(f, "PorchPost", Vector3.new(0.9, 9, 0.9), at(sx * (DOOR_W / 2 + 4.3), F + 4.5, PZ - 2.6), DARK, Enum.Material.Wood)
+		Util.part(f, "PorchRail", Vector3.new(0.4, 0.4, 5.6), at(sx * (DOOR_W / 2 + 4.3), F + 2.6, PZ + 0.3), DARK, Enum.Material.Wood)
+		Props.lantern(f, at(sx * (DOOR_W / 2 + 4.3), F + 7.2, PZ - 3.5))
+		Props.deco(Util.part(f, "LanternArm", Vector3.new(0.3, 0.3, 1.4), at(sx * (DOOR_W / 2 + 4.3), F + 8.2, PZ - 3.1), DARK, Enum.Material.Wood))
+	end
+	Util.part(f, "PorchBeam", Vector3.new(DOOR_W + 10, 0.6, 0.6), at(0, F + 9, PZ - 2.6), DARK, Enum.Material.Wood)
+	local stripes = 9
+	for k = 0, stripes - 1 do
+		local col = k % 2 == 0 and Color3.fromRGB(196, 60, 50) or Color3.fromRGB(245, 240, 228)
+		local x = -(DOOR_W + 10) / 2 + (k + 0.5) * (DOOR_W + 10) / stripes
+		Props.deco(Util.part(f, "Awning", Vector3.new((DOOR_W + 10) / stripes, 0.25, 7), at(x, F + 9.9, PZ + 0.6) * CFrame.Angles(math.rad(-15), 0, 0), col, Enum.Material.Fabric))
+		Props.deco(Util.wedge(f, "AwningFlap", Vector3.new((DOOR_W + 10) / stripes, 0.7, 0.25), at(x, F + 8.6, PZ - 2.85), col, Enum.Material.Fabric))
+	end
+	Props.barrel(f, at(-DOOR_W / 2 - 2.6, F, PZ + 2.2), Random.new(5))
+	Props.crateStack(f, at(DOOR_W / 2 + 1.8, F, PZ + 2.2), Random.new(6), 2)
 
 	-- duvarlar
 	local wy = F + H / 2
@@ -233,6 +276,11 @@ function RodShop.Build(cfg)
 		local win = Util.part(f, "Window", Vector3.new(4.5, 3.5, 1.2), at(x, F + 7, -D / 2 + 0.5), Color3.fromRGB(150, 210, 235), Enum.Material.Glass)
 		win.Transparency = 0.4
 		Util.part(f, "WindowFrame", Vector3.new(5.3, 0.4, 1.4), at(x, F + 5.1, -D / 2 + 0.5), DARK, Enum.Material.Wood)
+		Util.part(f, "WindowFrame", Vector3.new(5.5, 0.5, 1.6), at(x, F + 8.95, -D / 2 + 0.5), DARK, Enum.Material.Wood)
+		for _, wx in { -2.6, 2.6 } do
+			Util.part(f, "WindowFrame", Vector3.new(0.45, 4.2, 1.6), at(x + wx, F + 7, -D / 2 + 0.5), DARK, Enum.Material.Wood)
+		end
+		Util.part(f, "WindowCross", Vector3.new(0.25, 3.5, 1.3), at(x, F + 7, -D / 2 + 0.5), DARK, Enum.Material.Wood)
 		-- köşe dikmeleri
 		Util.part(f, "Post", Vector3.new(1.4, H + 0.5, 1.4), at(s * W / 2, F + H / 2, -D / 2), DARK, Enum.Material.Wood)
 		Util.part(f, "Post", Vector3.new(1.4, H + 0.5, 1.4), at(s * W / 2, F + H / 2, D / 2), DARK, Enum.Material.Wood)
@@ -245,34 +293,32 @@ function RodShop.Build(cfg)
 	Util.part(f, "Ceiling", Vector3.new(W + 1, 0.6, D + 1), at(0, F + H + 0.3, 0), DARK, Enum.Material.Wood)
 	Util.wedge(f, "RoofFront", Vector3.new(RW, RH, RD / 2), at(0, F + H + 0.6 + RH / 2, -RD / 4), ROOF, Enum.Material.Slate)
 	Util.wedge(f, "RoofBack", Vector3.new(RW, RH, RD / 2), at(0, F + H + 0.6 + RH / 2, RD / 4) * CFrame.Angles(0, math.pi, 0), ROOF, Enum.Material.Slate)
+	Util.part(f, "Ridge", Vector3.new(RW + 0.6, 0.9, 1.4), at(0, F + H + 0.6 + RH + 0.3, 0), DARK, Enum.Material.Wood)
+	for _, sz in { -1, 1 } do
+		Util.part(f, "Eave", Vector3.new(RW, 0.6, 0.6), at(0, F + H + 0.4, sz * (RD / 2 - 0.3)), DARK, Enum.Material.Wood)
+		for x = -W / 2, W / 2 + 0.1, W / 7 do
+			Props.deco(Util.part(f, "Rafter", Vector3.new(0.6, 0.6, 2.6), at(x, F + H + 0.1, sz * (D / 2 + 0.9)), DARK, Enum.Material.Wood))
+		end
+	end
+	local chim = Util.part(f, "Chimney", Vector3.new(2.6, 6, 2.6), at(W / 2 - 6, F + H + 4.5, D / 4), Color3.fromRGB(130, 120, 112), Enum.Material.Cobblestone)
+	Util.part(f, "ChimneyCap", Vector3.new(3.2, 0.5, 3.2), chim.CFrame * CFrame.new(0, 3.2, 0), Color3.fromRGB(90, 86, 82), Enum.Material.Slate)
 
-	-- tabela
-	local sign = Util.part(f, "Sign", Vector3.new(15, 3.4, 0.5), at(0, F + DOOR_H + 2.6, -D / 2 - 0.3), DARK, Enum.Material.Wood)
-	Util.sign(sign, Enum.NormalId.Front, "ROD SHOP", Color3.fromRGB(255, 215, 90))
-
-	-- çatıda büyük tabela + uzaktan görünen yazı
+	-- tek tabela: girişin üstünde, çerçeveli, yanlarında asılı fenerler
 	local roofSign = Util.part(f, "RoofSign", Vector3.new(20, 4.5, 0.6), at(0, F + H + 4.2, -D / 2 - 0.4) * CFrame.Angles(math.rad(-12), 0, 0), DARK, Enum.Material.Wood)
 	Util.sign(roofSign, Enum.NormalId.Front, "🎣 ROD SHOP", Color3.fromRGB(255, 215, 90))
+	Util.part(f, "RoofSignFrame", Vector3.new(21.2, 5.6, 0.4), roofSign.CFrame * CFrame.new(0, 0, 0.4), Color3.fromRGB(140, 100, 56), Enum.Material.Wood)
 	for s2 = -1, 1, 2 do
 		Util.part(f, "RoofSignPost", Vector3.new(0.6, 4, 0.6), at(s2 * 8, F + H + 2.4, -D / 2 + 0.6), DARK, Enum.Material.Wood)
-	end
-	local bb = Util.billboard(roofSign, "🎣 ROD SHOP", 5, 260)
-	bb.Size = UDim2.fromOffset(260, 48)
-	bb.MaxDistance = 400
-	local bbText = bb:FindFirstChildOfClass("TextLabel")
-	if bbText then
-		bbText.TextColor3 = Color3.fromRGB(255, 215, 90)
+		Props.deco(Util.part(f, "SignLanternArm", Vector3.new(0.3, 0.3, 1.6), at(s2 * 11.2, F + H + 5.6, -D / 2 - 0.6), DARK, Enum.Material.Wood))
+		Props.lantern(f, at(s2 * 11.2, F + H + 4.4, -D / 2 - 1.3))
 	end
 
-	-- iç ışıklar
+	-- iç ışıklar: tavandan halatla sarkan fenerler
 	for _, x in { -10, 0, 10 } do
-		local lamp = Util.part(f, "Lamp", Vector3.new(1.2, 1.2, 1.2), at(x, F + H - 1.2, 2), Color3.fromRGB(255, 220, 150), Enum.Material.Neon, Enum.PartType.Ball)
-		lamp.CanCollide = false
-		local l = Instance.new("PointLight")
-		l.Brightness = 1.4
-		l.Range = 18
-		l.Color = Color3.fromRGB(255, 220, 170)
-		l.Parent = lamp
+		for _, z in { -5, 3 } do
+			Props.deco(Util.part(f, "LanternRope", Vector3.new(0.15, 1.6, 0.15), at(x, F + H - 0.8, z), Color3.fromRGB(196, 172, 122), Enum.Material.Fabric), false)
+			Props.lantern(f, at(x, F + H - 2.5, z), 1.1)
+		end
 	end
 
 	-- vitrinler: ilk 3 olta sol duvarda (kapıdan girince), kalan 4'ü arka duvarda; aralar eşit
@@ -295,14 +341,32 @@ function RodShop.Build(cfg)
 	local cx, cz = -W / 2 + 6, -3
 	Util.part(f, "Counter", Vector3.new(2.6, 3.6, 10), at(cx, F + 1.8, cz), Color3.fromRGB(120, 80, 48), Enum.Material.WoodPlanks)
 	Util.part(f, "CounterTop", Vector3.new(3.2, 0.4, 10.6), at(cx, F + 3.8, cz), DARK, Enum.Material.Wood)
-	Util.part(f, "CashBox", Vector3.new(1.6, 1, 1.4), at(cx, F + 4.5, cz - 2.5), Color3.fromRGB(200, 160, 60), Enum.Material.Metal)
-	Decor.barrel(f, base * Vector3.new(-W / 2 + 2.5, F, -D / 2 + 3))
-	Decor.crate(f, base * Vector3.new(W / 2 - 3, F, -D / 2 + 3), 0.3)
+	-- yazar kasa
+	Util.part(f, "Register", Vector3.new(1.8, 1.1, 1.6), at(cx, F + 4.55, cz - 2.5), Color3.fromRGB(176, 136, 60), Enum.Material.Metal)
+	Props.deco(Util.part(f, "RegisterTop", Vector3.new(1.6, 0.5, 0.9), at(cx + 0.2, F + 5.3, cz - 2.5) * CFrame.Angles(0, 0, math.rad(-25)), Color3.fromRGB(150, 110, 50), Enum.Material.Metal))
+	Props.deco(Util.part(f, "Keys", Vector3.new(0.9, 0.15, 1.2), at(cx - 0.5, F + 5.15, cz - 2.5) * CFrame.Angles(0, 0, math.rad(15)), Color3.fromRGB(240, 235, 220), Enum.Material.SmoothPlastic))
+	-- olta kutuları, kova
+	Props.tackleBox(f, at(cx, F + 4, cz + 1) * CFrame.Angles(0, math.pi / 2, 0), Color3.fromRGB(60, 120, 80))
+	Props.tackleBox(f, at(cx, F + 4, cz + 3.2) * CFrame.Angles(0, math.pi / 2 + 0.2, 0), Color3.fromRGB(170, 60, 50))
+	-- köşelerde fıçılar ve olta kovaları
+	local rr = Random.new(7)
+	for _, c in { { -W / 2 + 2.5, -D / 2 + 3 }, { W / 2 - 2.6, -D / 2 + 2.6 } } do
+		Props.barrel(f, at(c[1], F, c[2]), rr)
+	end
+	Props.bucket(f, at(-W / 2 + 2, F, D / 2 - 2.6), true)
+	Props.bucket(f, at(W / 2 - 5, F, -D / 2 + 2.4))
+	-- cam vitrin dolabı: yem ve iğneler
+	local gx, gz = -8.8, 5
+	Util.part(f, "CaseBase", Vector3.new(5, 2.6, 2.6), at(gx, F + 1.3, gz), Color3.fromRGB(110, 76, 46), Enum.Material.Wood)
+	local glass = Util.part(f, "CaseGlass", Vector3.new(4.8, 1.6, 2.4), at(gx, F + 3.4, gz), Color3.fromRGB(200, 230, 245), Enum.Material.Glass)
+	glass.Transparency = 0.7
+	Props.deco(Util.part(f, "CaseTop", Vector3.new(5.1, 0.25, 2.7), at(gx, F + 4.3, gz), Color3.fromRGB(110, 76, 46), Enum.Material.Wood))
+	for k = 0, 4 do
+		local col = ({ Color3.fromRGB(240, 90, 80), Color3.fromRGB(250, 200, 60), Color3.fromRGB(80, 200, 220), Color3.fromRGB(150, 230, 90), Color3.fromRGB(230, 120, 220) })[k + 1]
+		Props.deco(Util.ball(f, "Lure", Vector3.new(0.7, 0.35, 0.35), at(gx - 1.8 + k * 0.9, F + 2.85, gz + (k % 2) * 0.6 - 0.3), col, Enum.Material.SmoothPlastic), false)
+	end
 	merchant(f, at(-W / 2 + 3, F, cz) * CFrame.Angles(0, -math.pi / 2, 0))
 
-	-- kapı önü fenerleri
-	Decor.lamp(f, base * Vector3.new(-DOOR_W / 2 - 3, F - 1, -D / 2 - 3))
-	Decor.lamp(f, base * Vector3.new(DOOR_W / 2 + 3, F - 1, -D / 2 - 3))
 	return f
 end
 
