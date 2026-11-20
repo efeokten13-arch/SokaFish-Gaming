@@ -3,6 +3,7 @@
 local Client = script.Parent
 
 require(Client.Fishing.ReelingController).Init()
+require(Client.Fishing.ReelHands).Init()
 require(Client.UI.UIController).Init()
 require(Client.Movement.MovementController).Init()
 require(Client.Map.IslandGuide).Init()

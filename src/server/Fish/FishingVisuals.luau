@@ -21,6 +21,7 @@ type State = {
 	weld: Weld?,
 	baseC0: CFrame?,
 	rodTween: Tween?,
+	leftIK: IKControl?,
 	bobber: BasePart?,
 	bobBase: Vector3?,
 	bobTween: Tween?,
@@ -72,6 +73,10 @@ local function removeRod(st: State)
 	end
 	if st.rod then
 		st.rod:Destroy()
+	end
+	if st.leftIK then
+		st.leftIK:Destroy()
+		st.leftIK = nil
 	end
 	st.rod, st.weld, st.baseC0, st.rodId = nil, nil, nil, nil
 end
@@ -218,6 +223,33 @@ function FishingVisuals.Equip(player: Player, rodId: string)
 	rod.Parent = char
 
 	st.rod, st.rodId, st.weld, st.baseC0 = rod, rodId, weld, weld.C0
+
+	-- sol el makaranın kolunu tutar (iki elle tutuş). Çekerken kolu çevirme: client/Fishing/ReelHands
+	local tipAtt = rod:FindFirstChild("TipAttachment", true) :: Attachment?
+	local len = if tipAtt then math.abs(tipAtt.Position.Z) / 0.88 else 6
+	local grip = Instance.new("Attachment")
+	grip.Name = "ReelGrip"
+	grip.Position = Vector3.new(-0.15, -0.45, -math.clamp(len * 0.13, 0.7, 1.4))
+	grip:SetAttribute("Base", grip.Position)
+	grip.Parent = handle
+	local hum = char:FindFirstChildOfClass("Humanoid")
+	local luA, lh = char:FindFirstChild("LeftUpperArm"), char:FindFirstChild("LeftHand")
+	if hum and luA and lh then
+		local ok, ik = pcall(function()
+			local c = Instance.new("IKControl")
+			c.Name = "ReelLeftHand"
+			c.Type = Enum.IKControlType.Position
+			c.ChainRoot = luA
+			c.EndEffector = lh
+			c.Target = grip
+			c.Weight = 1
+			c.Parent = hum
+			return c
+		end)
+		if ok then
+			st.leftIK = ik
+		end
+	end
 end
 
 function FishingVisuals.Cast(player: Player, spot: BasePart, rodId: string)
@@ -287,6 +319,9 @@ function FishingVisuals.Hooked(player: Player)
 	if not st then
 		return
 	end
+	if st.rod then
+		st.rod:SetAttribute("Reeling", true)
+	end
 	-- Şamandıra su altında çırpınır
 	if st.bobber and st.bobBase then
 		if st.bobTween then
@@ -321,6 +356,9 @@ function FishingVisuals.Caught(player: Player, fishId: string)
 	local st = states[player]
 	if not st then
 		return
+	end
+	if st.rod then
+		st.rod:SetAttribute("Reeling", false)
 	end
 	st.lastActive = os.clock()
 	poseRod(st, 40, 0.3) -- oltayı kaldır
@@ -374,6 +412,9 @@ function FishingVisuals.End(player: Player)
 	local st = states[player]
 	if not st then
 		return
+	end
+	if st.rod then
+		st.rod:SetAttribute("Reeling", false)
 	end
 	st.lastActive = os.clock()
 	removeBobber(st)

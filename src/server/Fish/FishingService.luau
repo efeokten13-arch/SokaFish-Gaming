@@ -238,7 +238,8 @@ local function onReel(player: Player, success: any)
 	caught[s.fishId] = (caught[s.fishId] or 0) + 1
 	sessions[player] = nil
 	FishingVisuals.Caught(player, s.fishId)
-	Remotes.Event("FishCaught"):FireClient(player, s.fishId)
+	-- ikinci değer: bu tür ilk kez mi tutuldu (client büyük gösterim yapar)
+	Remotes.Event("FishCaught"):FireClient(player, s.fishId, caught[s.fishId] == 1)
 	DataService.Push(player)
 	GuideService.Event(player, "catch")
 end

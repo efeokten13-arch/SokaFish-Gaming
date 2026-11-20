@@ -155,7 +155,7 @@ function GuideController.Init()
 	end)
 	Remotes.Event("FishHooked").OnClientEvent:Connect(function()
 		if step == "fish" then
-			setTip("Hold the button to move the green bar up, let go to drop it. Keep the fish inside the green bar!")
+			setTip("Tap tap tap! Keep the fish in the GREEN. Too slow and it sinks, too fast and it flies into the red!")
 		end
 	end)
 	Remotes.Event("FishingEnded").OnClientEvent:Connect(function(reason)
@@ -167,7 +167,7 @@ function GuideController.Init()
 		elseif reason == "late" then
 			setTip("Too slow! Press quickly when the fish bites. Try again!")
 		elseif reason == "escaped" then
-			setTip("It got away! Keep the fish inside the green bar. Try again!")
+			setTip("It got away! Don't stay in the red too long. Try again!")
 		elseif reason == "notwater" or reason == "far" then
 			setTip("Face the water and try again!")
 		end

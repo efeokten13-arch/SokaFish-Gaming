@@ -18,6 +18,8 @@ return {
 	ThunderVolume = 0.9,
 
 	Splash = "rbxassetid://9125703162", -- balık vurunca / tutunca su sesi
+	Reel = "rbxassetid://9114454025", -- olta makarası (çekerken döngü)
+	NewFish = "rbxassetid://1839881844", -- yeni tür ilk kez tutulunca kısa fanfar
 	CatchJingle = "rbxassetid://1848281810", -- balık tutunca kısa müzik
 	HoHo = "rbxassetid://140460517641927", -- yaşlı balıkçının "Ho ho!" kahkahası (öğretici)
 	Click = "rbxassetid://9125703162", -- öğreticide cevap butonu (küçük su sesi)
