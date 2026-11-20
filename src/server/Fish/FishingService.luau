@@ -15,6 +15,8 @@ local Remotes = require(Shared:WaitForChild("Remotes"))
 
 local Server = script.Parent.Parent
 local FishService = require(Server.Fish.FishService)
+local StormService = require(Server.Weather.StormService)
+local StormsCfg = require(game:GetService("ReplicatedStorage").Shared.Config.Storms)
 local DataService = require(Server.Data.DataService)
 local BoatService = require(Server.Boat.BoatService)
 local FishingVisuals = require(Server.Fish.FishingVisuals)
@@ -134,6 +136,10 @@ local function onCast(player: Player, spot: any)
 	local spotType = spot:GetAttribute("SpotType") or "Near"
 	local ocean = spot:GetAttribute("Ocean") or "Warm"
 	local luck = FishService.GetLuck(data.rod, data.bait, spotType) * (if hotspot then Cfg.HotspotLuck else 1)
+	-- yağmur bulutunun altı: nadir balık şansı artar
+	if StormService.IsUnderStorm(spot.Position) then
+		luck *= StormsCfg.Luck
+	end
 	local fishId = FishService.Roll(ocean, spotType, luck)
 	if not fishId then
 		Remotes.Event("FishingEnded"):FireClient(player, "nofish")

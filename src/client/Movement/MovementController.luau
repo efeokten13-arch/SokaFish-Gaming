@@ -39,6 +39,10 @@ local function applySpeed()
 	if not hum or hum.SeatPart then
 		return
 	end
+	-- top nişanındayken hız ve FOV'u CannonController yönetir
+	if Players.LocalPlayer:GetAttribute("CannonAiming") then
+		return
+	end
 	local sw = isSwimming(hum)
 	local target
 	if sw then
