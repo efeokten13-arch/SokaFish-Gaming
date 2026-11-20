@@ -11,6 +11,7 @@ local Remotes = require(Shared:WaitForChild("Remotes"))
 local DataService = require(script.Parent.Parent.Data.DataService)
 local MapService = require(script.Parent.Parent.Map.MapService)
 local BoatModels = require(script.Parent.BoatModels)
+local GuideService = require(script.Parent.Parent.Guide.GuideService)
 
 local BoatService = {}
 
@@ -204,18 +205,11 @@ local function onPrompt(player: Player, id: string, display: Model)
 		data.boat = bestBoat(data)
 		DataService.Notify(player, "You bought the " .. info.displayName .. "!", GREEN)
 		DataService.Push(player)
-		-- anlatım: ilk tekne alındı -> adaya git
 		if ((data :: any).tutorial or 0) < 2 then
 			(data :: any).tutorial = 2
-			local island = MapService.GetIsland(player)
-			local sp = island and island:FindFirstChild("Spawn")
-			if sp then
-				task.delay(1.5, function()
-					Remotes.Event("GuideTarget"):FireClient(player, sp, "Your island")
-					DataService.Notify(player, "Sail to your island and put your fish in the pool!", GREEN)
-				end)
-			end
 		end
+		-- rehber: tekne alındı -> balık tutma adımı
+		GuideService.Event(player, "boat")
 	end
 	launch(player, id, display)
 end

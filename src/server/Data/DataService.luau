@@ -39,6 +39,7 @@ export type PlayerData = {
 	ownedRods: { string },
 	caught: { [string]: number }, -- koleksiyon kitabı: tür -> tutulan sayı
 	tutorial: number, -- 0 = başlamadı, 1 = ada alındı, 2 = tekne alındı
+	guide: number?, -- rehber adımı (GuideService): 0 başlamadı, 1 olta, 2 tekne, 3 balık, 4 havuz, 5 bitti
 	introDone: boolean?, -- yaşlı balıkçının giriş öğreticisi bitti mi (bitene kadar ada/harita butonları kapalı)
 	starterGrant: boolean?, -- eski kayıtlara bir kez başlangıç parası vermek için
 	lastOnline: number,
@@ -53,8 +54,9 @@ local function defaultData(): PlayerData
 		storage = {},
 		pool = {},
 		ownedBoats = {},
-		ownedRods = { Economy.StarterRod },
+		ownedRods = {}, -- ilk olta Rod Shop'tan bedava alınır (rehber adımı 1)
 		caught = {},
+		guide = 0,
 		tutorial = 0,
 		lastOnline = os.time(),
 	}
@@ -85,6 +87,7 @@ function DataService.Payload(player: Player): any
 		ownedBoats = table.clone(data.ownedBoats),
 		caught = table.clone(data.caught),
 		introDone = data.introDone == true,
+		guide = data.guide or 0,
 		ownedRods = table.clone(data.ownedRods),
 		rod = data.rod,
 		bait = data.bait,
@@ -130,9 +133,13 @@ local function load(player: Player)
 		data.money = math.max(data.money, Economy.StartingMoney)
 		data.starterGrant = true
 	end
-	-- öğretici eklenmeden önce ada almış oyuncular öğreticiyi tekrar görmesin
+	-- öğretici / rehber eklenmeden önceki kayıtlar: ada almış oyuncu öğreticiyi tekrar görmesin, oltası olsun
+	local legacy = type(result) == "table" and result.guide == nil
 	if data.introDone == nil then
 		data.introDone = (data.tutorial or 0) >= 1
+	end
+	if legacy then
+		data.guide = if data.introDone then 5 else 0
 	end
 	-- olta listesi değişti: eski kayıttaki olmayan oltalar başlangıç oltasına döner
 	if type(data.ownedRods) ~= "table" then
@@ -144,7 +151,7 @@ local function load(player: Player)
 			table.insert(valid, id)
 		end
 	end
-	if not table.find(valid, Economy.StarterRod) then
+	if legacy and not table.find(valid, Economy.StarterRod) then
 		table.insert(valid, 1, Economy.StarterRod)
 	end
 	data.ownedRods = valid

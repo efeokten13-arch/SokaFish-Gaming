@@ -32,6 +32,7 @@ local EVENTS = {
 
 	-- Giriş öğreticisi (yaşlı balıkçı ile sinematik sohbet)
 	"IntroStart", -- server -> client: öğreticiyi başlat
+	"GuideStep", -- server -> client: rehber adımı (id, görev yazısı, havuz parçası)
 }
 
 local FUNCTIONS = {

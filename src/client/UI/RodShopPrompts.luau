@@ -49,8 +49,8 @@ local function refresh(prompt: Instance)
 			prompt.ActionText = "Owned · Equip"
 			prompt.HoldDuration = 0
 		else
-			prompt.ActionText = "Buy " .. money(def.price)
-			prompt.HoldDuration = BUY_HOLD
+			prompt.ActionText = if def.price > 0 then "Buy " .. money(def.price) else "Take FREE"
+			prompt.HoldDuration = if def.price > 0 then BUY_HOLD else 0
 		end
 	elseif prompt.Name == "BoatPrompt" then
 		local id = prompt:GetAttribute("BoatId")

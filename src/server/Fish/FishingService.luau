@@ -15,6 +15,7 @@ local Remotes = require(Shared:WaitForChild("Remotes"))
 
 local Server = script.Parent.Parent
 local FishService = require(Server.Fish.FishService)
+local GuideService = require(Server.Guide.GuideService)
 local StormService = require(Server.Weather.StormService)
 local StormsCfg = require(game:GetService("ReplicatedStorage").Shared.Config.Storms)
 local DataService = require(Server.Data.DataService)
@@ -128,6 +129,12 @@ local function onCast(player: Player, spot: any)
 		Remotes.Event("FishingEnded"):FireClient(player, "invalid")
 		return
 	end
+	-- oltası yoksa (yeni oyuncu): önce Rod Shop
+	if not table.find((data :: any).ownedRods, data.rod) then
+		DataService.Notify(player, "You need a fishing rod! Get a FREE one at the Rod Shop.", Color3.fromRGB(255, 140, 120))
+		Remotes.Event("FishingEnded"):FireClient(player, "invalid")
+		return
+	end
 	if #data.storage >= BoatService.GetSlotCount(data.boat) then
 		Remotes.Event("FishingEnded"):FireClient(player, "full")
 		return
@@ -233,6 +240,7 @@ local function onReel(player: Player, success: any)
 	FishingVisuals.Caught(player, s.fishId)
 	Remotes.Event("FishCaught"):FireClient(player, s.fishId)
 	DataService.Push(player)
+	GuideService.Event(player, "catch")
 end
 
 function FishingService.Init()

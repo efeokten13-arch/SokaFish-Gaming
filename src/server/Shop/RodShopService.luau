@@ -8,6 +8,7 @@ local Workspace = game:GetService("Workspace")
 local Shared = ReplicatedStorage:WaitForChild("Shared")
 local Economy = require(Shared:WaitForChild("Config"):WaitForChild("Economy"))
 local DataService = require(script.Parent.Parent.Data.DataService)
+local GuideService = require(script.Parent.Parent.Guide.GuideService)
 
 local RodShopService = {}
 
@@ -24,11 +25,13 @@ local function onPrompt(player: Player, rodId: string)
 	if table.find(data.ownedRods, rodId) then
 		if data.rod == rodId then
 			DataService.Notify(player, def.displayName .. " is already equipped", GREEN)
+			GuideService.Event(player, "rod")
 			return
 		end
 		data.rod = rodId
 		DataService.Notify(player, "Equipped " .. def.displayName, GREEN)
 		DataService.Push(player)
+		GuideService.Event(player, "rod")
 		return
 	end
 	if data.money < def.price then
@@ -38,8 +41,9 @@ local function onPrompt(player: Player, rodId: string)
 	data.money -= def.price
 	table.insert(data.ownedRods, rodId)
 	data.rod = rodId
-	DataService.Notify(player, "Bought & equipped " .. def.displayName .. "!", GREEN)
+	DataService.Notify(player, (if def.price > 0 then "Bought & equipped " else "Got your ") .. def.displayName .. "!", GREEN)
 	DataService.Push(player)
+	GuideService.Event(player, "rod")
 end
 
 local function hook(prompt: Instance)

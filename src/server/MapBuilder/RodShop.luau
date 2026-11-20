@@ -138,7 +138,7 @@ local function display(f, cf, rodId)
 	local p = Instance.new("ProximityPrompt")
 	p.Name = "BuyPrompt"
 	p.ObjectText = def.displayName
-	p.ActionText = if def.price > 0 then "Buy " .. money(def.price) else "Equip"
+	p.ActionText = if def.price > 0 then "Buy " .. money(def.price) else "Take FREE"
 	p.HoldDuration = 0.8 -- yanlışlıkla almasınlar: basılı tutmak gerekir (sahip olunca client 0 yapar)
 	p.MaxActivationDistance = 6
 	p.RequiresLineOfSight = false

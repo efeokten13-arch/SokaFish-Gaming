@@ -8,6 +8,7 @@ local Players = game:GetService("Players")
 local Remotes = require(ReplicatedStorage:WaitForChild("Shared"):WaitForChild("Remotes"))
 local MapService = require(script.Parent.MapService)
 local DataService = require(script.Parent.Parent.Data.DataService)
+local GuideService = require(script.Parent.Parent.Guide.GuideService)
 local Economy = require(ReplicatedStorage:WaitForChild("Shared"):WaitForChild("Config"):WaitForChild("Economy"))
 
 local FishermanService = {}
@@ -129,6 +130,7 @@ local function onJoin(player: Player)
 	if island then
 		notify(player, "Welcome back! Island " .. islandNumber(island) .. " is yours", Color3.fromRGB(120, 230, 150))
 	end
+	GuideService.Resume(player)
 end
 
 -- Öğreticiden gelen istekler
@@ -151,16 +153,11 @@ local function onIntroAction(player: Player, action: any): any
 			return true
 		end
 		data.introDone = true
-		DataService.Push(player)
-		-- sonraki adım: tekne yoksa iskeleye, varsa adaya ok
-		local island = MapService.GetIsland(player) or MapService.AssignIsland(player)
-		local shop = boatShopTarget()
-		if #data.ownedBoats == 0 and shop then
-			Remotes.Event("GuideTarget"):FireClient(player, shop, "Boat shop")
-			notify(player, "Buy your first boat at the Boat Shop!", Color3.fromRGB(255, 244, 214))
-		elseif island and island:FindFirstChild("Spawn") then
-			Remotes.Event("GuideTarget"):FireClient(player, island:FindFirstChild("Spawn"), "Your island")
+		if not MapService.GetIsland(player) then
+			MapService.AssignIsland(player)
 		end
+		-- rehber: önce Rod Shop, sonra tekne, balık tutma, havuz
+		GuideService.Start(player)
 		return true
 	end
 	return nil

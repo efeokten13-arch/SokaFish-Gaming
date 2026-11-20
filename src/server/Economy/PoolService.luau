@@ -11,6 +11,7 @@ local Fish = require(Config:WaitForChild("Fish"))
 local Economy = require(Config:WaitForChild("Economy"))
 local FishModelBuilder = require(Shared:WaitForChild("FishModelBuilder"))
 local DataService = require(script.Parent.Parent.Data.DataService)
+local GuideService = require(script.Parent.Parent.Guide.GuideService)
 
 local PoolService = {}
 
@@ -114,6 +115,7 @@ local function deposit(player: Player, island: Instance)
 	DataService.Notify(player, moved .. " fish added to your pool! Earning $" .. PoolService.IncomePerMinute(data) .. "/minute", GREEN)
 	DataService.Push(player)
 	refreshVisuals(island, data)
+	GuideService.Event(player, "pool")
 end
 
 local function addPrompts(island: Instance)

@@ -15,5 +15,6 @@ require(Client.UI.RodShopPrompts).Init()
 require(Client.Effects.SoundController).Init()
 require(Client.Effects.StormClouds).Init()
 require(Client.Tutorial.IntroController).Init()
+require(Client.Tutorial.GuideController).Init()
 
 print("[Client] Hazır")
