@@ -3,8 +3,11 @@
 -- Olta -Z yönünde uzanır. Handle = PrimaryPart (tutma noktası).
 -- Uçta "TipAttachment" var: misina (Beam) buraya bağlanır.
 --
--- Kullanım: local rod = RodModelBuilder.Build("CarbonRod")
+-- Kullanım: local rod = RodModelBuilder.Build("IronRod")
+-- Önce ReplicatedStorage.Assets.Rods.<id> 3D modeli aranır (Handle + Mesh + TipAttachment).
+-- Bulunamazsa aşağıdaki basit Part oltası çizilir.
 
+local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local Shared = script.Parent
 local Economy = require(Shared:WaitForChild("Config"):WaitForChild("Economy"))
 
@@ -28,9 +31,45 @@ local function newPart(model: Model, name: string, size: Vector3, color: Color3,
 	return p
 end
 
-function RodModelBuilder.Build(rodId: string): Model
+local function template(rodId: string): Model?
+	local assets = ReplicatedStorage:FindFirstChild("Assets")
+	local folder = assets and assets:FindFirstChild("Rods")
+	local t = folder and folder:FindFirstChild(rodId)
+	if t and t:IsA("Model") and t.PrimaryPart then
+		return t
+	end
+	return nil
+end
+
+-- 3D modelin kendi boyu (Handle'dan uca)
+local function templateLength(m: Model): number
+	local att = m:FindFirstChild("TipAttachment", true) :: Attachment?
+	return if att then math.abs(att.Position.Z) / 0.88 else 8
+end
+
+-- length verilirse olta o boya ölçeklenir (elde / vitrinde farklı boy için)
+function RodModelBuilder.Build(rodId: string, length: number?): Model
 	local rods = Economy.Rods :: any
-	local def = rods[rodId] or rods.BasicRod
+	local def = rods[rodId] or rods[Economy.StarterRod]
+	local t = template(rodId) or template(Economy.StarterRod)
+	if t then
+		local model = t:Clone()
+		model.Name = "Rod"
+		for _, d in model:GetDescendants() do
+			if d:IsA("BasePart") then
+				d.Anchored = false
+				d.CanCollide = false
+				d.CanQuery = false
+				d.CanTouch = false
+				d.Massless = true
+			end
+		end
+		local want = length or def.length
+		if want then
+			model:ScaleTo(model:GetScale() * want / templateLength(t))
+		end
+		return model
+	end
 	local look = def.look
 	local reflect = look.reflect or 0
 

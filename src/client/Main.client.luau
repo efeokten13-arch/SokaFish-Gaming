@@ -11,5 +11,6 @@ require(Client.UI.SeaMap).Init()
 require(Client.Effects.BoatWake).Init()
 require(Client.Effects.RegionWater).Init()
 require(Client.Combat.CannonController).Init()
+require(Client.UI.RodShopPrompts).Init()
 
 print("[Client] Hazır")

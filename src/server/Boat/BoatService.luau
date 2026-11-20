@@ -234,6 +234,9 @@ function BoatService.Init()
 			local hull = display:IsA("Model") and display.PrimaryPart
 			if info and hull then
 				local prompt = Instance.new("ProximityPrompt")
+				prompt.Name = "BoatPrompt"
+				prompt:SetAttribute("BoatId", id)
+				-- yazıyı her oyuncu için client/UI/RodShopPrompts ayarlar (Buy / Owned · Sail)
 				prompt.ActionText = "Buy ($" .. info.price .. ") / Sail"
 				prompt.ObjectText = info.displayName
 				prompt.HoldDuration = 0.3

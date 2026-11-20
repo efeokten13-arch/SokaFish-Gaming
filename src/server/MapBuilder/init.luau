@@ -51,6 +51,12 @@ function Builder.Structures()
 	S.Pier(c)
 	S.Props(c)
 	S.Fisherman(c)
+	Builder.RodShop()
+end
+
+-- Ana adadaki olta dükkânı (eski kulübelerden birinin yerine)
+function Builder.RodShop()
+	return require(script.RodShop).Build(cfg())
 end
 
 -- Var olan adalara Spawn (ışınlanma noktası + sahip yazısı) ekle

@@ -386,7 +386,7 @@ function Structures.Props(cfg)
 	local g = cfg.GrassY
 	local rng = Random.new(cfg.Seed + 5)
 	-- kulübeler
-	for _, h in { { -135, 70 }, { -150, -60 } } do
+	for _, h in { { -150, -60 } } do -- (-135, 70) artık Rod Shop (MapBuilder/RodShop)
 		local x, z = h[1], h[2]
 		Land.paintDisc(x, z, 11, Enum.Material.Ground)
 		Util.part(f, "HutBase", Vector3.new(16, 1, 14), CFrame.new(x, g + 0.5, z), STONE, Enum.Material.Cobblestone)

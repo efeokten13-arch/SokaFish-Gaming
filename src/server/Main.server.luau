@@ -18,6 +18,7 @@ local services = {
 	require(Server.SeaMap.SeaMapService),
 	require(Server.Combat.CannonService),
 	require(Server.Treasure.TreasureService),
+	require(Server.Shop.RodShopService),
 }
 
 for _, s in services do

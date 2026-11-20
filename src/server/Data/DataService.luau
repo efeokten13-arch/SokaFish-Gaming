@@ -12,7 +12,7 @@
 --     protectedSlots = 1,
 --     pool = { "Cod" },                 -- havuzdaki balık id'leri
 --     poolCapacity = 6,
---     boat = "Kayak", rod = "BasicRod", bait = "BasicBait",
+--     boat = "Kayak", rod = "BranchRod", ownedRods = { "BranchRod" }, bait = "BasicBait",
 --   }
 -- Veri değiştiren her server kodu sonunda DataService.Push(player) çağırmalı.
 
@@ -36,6 +36,7 @@ export type PlayerData = {
 	storage: { string },
 	pool: { string },
 	ownedBoats: { string },
+	ownedRods: { string },
 	caught: { [string]: number }, -- koleksiyon kitabı: tür -> tutulan sayı
 	tutorial: number, -- 0 = başlamadı, 1 = ada alındı, 2 = tekne alındı
 	starterGrant: boolean?, -- eski kayıtlara bir kez başlangıç parası vermek için
@@ -46,11 +47,12 @@ local function defaultData(): PlayerData
 	return {
 		money = Economy.StartingMoney,
 		boat = Boats.Starter,
-		rod = "BasicRod",
+		rod = Economy.StarterRod,
 		bait = "BasicBait",
 		storage = {},
 		pool = {},
 		ownedBoats = {},
+		ownedRods = { Economy.StarterRod },
 		caught = {},
 		tutorial = 0,
 		lastOnline = os.time(),
@@ -81,6 +83,7 @@ function DataService.Payload(player: Player): any
 		boat = data.boat,
 		ownedBoats = table.clone(data.ownedBoats),
 		caught = table.clone(data.caught),
+		ownedRods = table.clone(data.ownedRods),
 		rod = data.rod,
 		bait = data.bait,
 	}
@@ -124,6 +127,23 @@ local function load(player: Player)
 	if not data.starterGrant then
 		data.money = math.max(data.money, Economy.StartingMoney)
 		data.starterGrant = true
+	end
+	-- olta listesi değişti: eski kayıttaki olmayan oltalar başlangıç oltasına döner
+	if type(data.ownedRods) ~= "table" then
+		data.ownedRods = {}
+	end
+	local valid = {}
+	for _, id in data.ownedRods do
+		if (Economy.Rods :: any)[id] and not table.find(valid, id) then
+			table.insert(valid, id)
+		end
+	end
+	if not table.find(valid, Economy.StarterRod) then
+		table.insert(valid, 1, Economy.StarterRod)
+	end
+	data.ownedRods = valid
+	if not table.find(valid, data.rod) then
+		data.rod = Economy.StarterRod
 	end
 	cache[player] = data
 	DataService.Push(player)
