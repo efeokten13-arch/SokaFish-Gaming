@@ -1,14 +1,15 @@
 --!strict
 -- Tekne seviyeleri.
 -- slots: depolama slotu sayısı (1 tanesi korumalı)
--- speed: kürek/motor hızı
+-- speed: en yüksek hız (stud/sn). Karakter yürüyüşü 16.
+-- turnIdle (isteğe bağlı): dururken dönüş hızı (varsayılan 0.18; hareket halinde tam hız)
 -- oceans: bu tekneyle girilebilen okyanuslar
 
 local Boats = {
-	Rowboat = { displayName = "Rowboat", price = 1, slots = 3, speed = 12, oceans = { "Warm" }, order = 1 },
-	Kayak = { displayName = "Yellow Canoe", price = 100, slots = 5, speed = 18, oceans = { "Warm" }, order = 2 },
-	Sloop = { displayName = "Sloop", price = 2500, slots = 7, speed = 22, oceans = { "Warm", "Deep" }, order = 3 },
-	Warship = { displayName = "Warship", price = 50000, slots = 9, speed = 26, oceans = { "Warm", "Deep", "Mystery" }, order = 4 },
+	Rowboat = { displayName = "Rowboat", price = 1, slots = 3, speed = 215, oceans = { "Warm" }, order = 1 },
+	Kayak = { displayName = "Yellow Canoe", price = 100, slots = 5, speed = 312, oceans = { "Warm" }, order = 2 },
+	Sloop = { displayName = "Sloop", price = 2500, slots = 7, speed = 371, oceans = { "Warm", "Deep" }, order = 3 },
+	Warship = { displayName = "Warship", price = 50000, slots = 9, speed = 429, oceans = { "Warm", "Deep", "Mystery" }, order = 4 },
 }
 
 Boats.ProtectedSlots = 1

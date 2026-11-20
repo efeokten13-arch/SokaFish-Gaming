@@ -31,6 +31,23 @@ local function makePaddle()
 	return {model = m, shaft = shaft, bladeL = bladeL, bladeR = bladeR, gripL = gripL, gripR = gripR}
 end
 
+-- Ahşap kayık: iki kürek (yuvaya takılı), sap içeride, pala dışarıda
+local OAR_LEN, OAR_INNER = 7.2, 2.1 -- toplam boy, yuvadan içeride kalan kısım
+local OAR_WOOD = Color3.fromRGB(120, 82, 50)
+local function makeOars()
+	local m = Instance.new("Model"); m.Name = "LocalOars"
+	local oars = {}
+	for _, sx in {1, -1} do
+		local shaft = mkPart(m, "Shaft", Vector3.new(OAR_LEN, 0.24, 0.24), OAR_WOOD, Enum.Material.Wood, "cylinder")
+		local blade = mkPart(m, "Blade", Vector3.new(1.9, 0.75, 0.12), OAR_WOOD, Enum.Material.Wood)
+		local handle = mkPart(m, "Handle", Vector3.new(0.7, 0.3, 0.3), Color3.fromRGB(80, 55, 35), Enum.Material.Wood, "cylinder")
+		local grip = Instance.new("Attachment"); grip.Name = "Grip"; grip.Parent = handle
+		oars[sx] = {shaft = shaft, blade = blade, handle = handle, grip = grip}
+	end
+	m.Parent = workspace
+	return {model = m, oars = oars}
+end
+
 local function makeIK(humanoid, rootPart, effector, target, pole)
 	local ok, ik = pcall(function()
 		local c = Instance.new("IKControl")
@@ -49,15 +66,40 @@ end
 
 local function beginRowing(model, seat, humanoid)
 	local s = {seat = seat, humanoid = humanoid, phase = 0, k = 0, ik = {}}
-	s.paddle = makePaddle()
 	local char = humanoid.Parent
 	local ruA, rh = char:FindFirstChild("RightUpperArm"), char:FindFirstChild("RightHand")
 	local luA, lh = char:FindFirstChild("LeftUpperArm"), char:FindFirstChild("LeftHand")
+	local gripR, gripL
+	if model:GetAttribute("Oars") then
+		s.oars = makeOars()
+		s.lockR = model:FindFirstChild("OarlockR", true)
+		s.lockL = model:FindFirstChild("OarlockL", true)
+		gripR, gripL = s.oars.oars[1].grip, s.oars.oars[-1].grip
+	else
+		s.paddle = makePaddle()
+		gripR, gripL = s.paddle.gripR, s.paddle.gripL
+	end
 	if ruA and rh and luA and lh then
-		table.insert(s.ik, makeIK(humanoid, ruA, rh, s.paddle.gripR, seat:FindFirstChild("ElbowR")))
-		table.insert(s.ik, makeIK(humanoid, luA, lh, s.paddle.gripL, seat:FindFirstChild("ElbowL")))
+		table.insert(s.ik, makeIK(humanoid, ruA, rh, gripR, seat:FindFirstChild("ElbowR")))
+		table.insert(s.ik, makeIK(humanoid, luA, lh, gripL, seat:FindFirstChild("ElbowL")))
 	end
 	return s
+end
+
+-- İki kürek: çekişte palalar suda geriye süpürülür, dönüşte havada öne gelir
+local function updateOars(s, dt)
+	for sx, oar in pairs(s.oars.oars) do
+		local lock = sx == 1 and s.lockR or s.lockL
+		if lock then
+			local c = math.cos(s.phase)
+			local sweep = s.k * 0.55 * math.sin(s.phase) -- + : palalar geriye
+			local dip = 0.22 + s.k * (0.14 * c) -- c>0 : pala suda (daha aşağı)
+			local cf = lock.CFrame * CFrame.Angles(0, -sx * sweep, 0) * CFrame.Angles(0, 0, -sx * dip)
+			oar.shaft.CFrame = cf * CFrame.new(sx * (OAR_LEN / 2 - OAR_INNER), 0, 0)
+			oar.blade.CFrame = cf * CFrame.new(sx * (OAR_LEN - OAR_INNER - 0.85), 0, 0)
+			oar.handle.CFrame = cf * CFrame.new(-sx * (OAR_INNER - 0.3), 0, 0)
+		end
+	end
 end
 
 local function endRowing(model)
@@ -65,6 +107,7 @@ local function endRowing(model)
 	if not s then return end
 	for _, ik in ipairs(s.ik) do if ik then ik:Destroy() end end
 	if s.paddle then s.paddle.model:Destroy() end
+	if s.oars then s.oars.model:Destroy() end
 	active[model] = nil
 end
 
@@ -86,6 +129,10 @@ RunService.RenderStepped:Connect(function(dt)
 			s.k += ((math.abs(throttle) > 0.05 and 1 or 0) - s.k) * math.min(1, dt * 6)
 			s.phase += dt * rate * throttle
 
+			if s.oars then
+				updateOars(s, dt)
+				continue
+			end
 			-- one full cycle = right stroke then left stroke:
 			-- the shaft tilts (blade dips) and sweeps back on the stroking side
 			local yaw = s.k * 0.42 * math.cos(s.phase)

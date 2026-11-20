@@ -99,8 +99,11 @@ RunService.Heartbeat:Connect(function(dt)
 		local vf, vr = vel:Dot(look), vel:Dot(right)
 		local speedFactor = math.clamp(math.abs(vf) / 10, 0, 1)
 
-		-- steering: right turn is clockwise (negative yaw); a paddle can also turn the kayak on the spot
-		b.yaw -= steer * (0.55 + 0.9 * speedFactor) * dt
+		-- steering: right turn is clockwise (negative yaw).
+		-- Dururken çok yavaş döner (yerinde fırıldak olmasın), hızlandıkça normal dönüş hızına çıkar.
+		local turnIdle = model:GetAttribute("TurnIdle") or 0.18
+		local turnMove = model:GetAttribute("TurnMove") or 0.95
+		b.yaw -= steer * (turnIdle + turnMove * speedFactor) * dt
 		local roll = -steer * speedFactor * 0.1
 		b.align.CFrame = CFrame.Angles(0, b.yaw, 0) * CFrame.Angles(0, 0, roll)
 
@@ -109,7 +112,10 @@ RunService.Heartbeat:Connect(function(dt)
 		local pulse = 0.65 + 0.7 * math.abs(math.sin(b.phase))
 		local power = model:GetAttribute("Accel") or ACCEL
 		local acc = (throttle >= 0 and power or power * 0.5) * throttle * pulse
-		local f = look * (acc - DRAG_FWD * vf) + right * (-DRAG_SIDE * vr)
+		-- en yüksek hız: Config/Boats -> speed (stud/sn). Sürtünme buna göre ayarlanır
+		local top = model:GetAttribute("TopSpeed")
+		local drag = if top and top > 0 then power * 1.1 / top else DRAG_FWD
+		local f = look * (acc - drag * vf) + right * (-DRAG_SIDE * vr)
 		b.drive.Force = f * mass
 	end
 end)

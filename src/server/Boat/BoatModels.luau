@@ -4,6 +4,8 @@
 --   BoatModels.Build(id, cframe, display)  -> display = true ise sabit vitrin modeli (sürülemez, tag yok)
 local CollectionService = game:GetService("CollectionService")
 
+local BoatsCfg = require(game:GetService("ReplicatedStorage"):WaitForChild("Shared"):WaitForChild("Config"):WaitForChild("Boats"))
+
 local BoatModels = {}
 
 local WOOD = Color3.fromRGB(150, 102, 62)
@@ -76,9 +78,51 @@ BUILDERS.Kayak = function(m)
 	}
 end
 
+-- Rowboat: AI ile üretilmiş ahşap kayık (ServerStorage.BoatTemplates.Rowboat) görüntü olarak,
+-- fizik için görünmez gövde + zemin. Şablon yoksa eski basit kayık çizilir.
+local ROWBOAT_MESH_Y = 0.55 -- mesh merkezinin gövde merkezine göre yüksekliği
 BUILDERS.Rowboat = function(m)
+	local storage = game:GetService("ServerStorage")
+	local folder = storage:FindFirstChild("BoatTemplates")
+	local template = folder and folder:FindFirstChild("Rowboat")
 	local hull = newPart(m, "Hull", Vector3.new(6, 2.4, 15), WOOD, Enum.Material.WoodPlanks, "ball")
-	local parts = {
+	local parts = {}
+	if template then
+		hull.Transparency = 1
+		local floor = newPart(m, "Floor", Vector3.new(4.2, 0.3, 10), Color3.fromRGB(170, 122, 80), Enum.Material.WoodPlanks)
+		floor.Transparency = 1
+		table.insert(parts, { floor, CFrame.new(0, -1.05, 0) }) -- mesh'in iç tabanı
+		local visual = template:Clone()
+		visual.Name = "Visual"
+		for _, d in visual:GetDescendants() do
+			if d:IsA("BasePart") then
+				d.CanCollide = false
+				d.CanQuery = false
+				d.CanTouch = false
+				d.Massless = true
+				d.CastShadow = true
+			end
+		end
+		visual.Parent = m
+		local pivot = visual:GetPivot()
+		for _, d in visual:GetDescendants() do
+			if d:IsA("BasePart") then
+				table.insert(parts, { d, CFrame.new(0, ROWBOAT_MESH_Y, 0) * pivot:ToObjectSpace(d.CFrame) })
+			end
+		end
+		local st = seat(m, Vector3.new(2.4, 0.5, 2), DARK)
+		st.Transparency = 1
+		table.insert(parts, { st, CFrame.new(0, 1.1, 0) }) -- orta sıra (üstü 1.33)
+		-- kürek yuvaları (RowingAnimation iki kürek takar)
+		for _, sx in { -1, 1 } do
+			local lock = newPart(m, sx < 0 and "OarlockL" or "OarlockR", Vector3.new(0.2, 0.2, 0.2), DARK)
+			lock.Transparency = 1
+			lock.CanCollide = false
+			table.insert(parts, { lock, CFrame.new(sx * 2.75, 1.85, -0.9) }) -- küpeşte üstü ~1.6
+		end
+		return hull, parts
+	end
+	parts = {
 		{ newPart(m, "Floor", Vector3.new(4.2, 0.3, 10), Color3.fromRGB(170, 122, 80), Enum.Material.WoodPlanks), CFrame.new(0, 0.75, 0) },
 		{ newPart(m, "BenchF", Vector3.new(4.6, 0.4, 1.2), DARK), CFrame.new(0, 1.2, -3.5) },
 		{ newPart(m, "BenchB", Vector3.new(4.6, 0.4, 1.2), DARK), CFrame.new(0, 1.2, 4) },
@@ -225,7 +269,7 @@ BUILDERS.Warship = function(m)
 end
 
 local SETTINGS = {
-	Rowboat = { accel = 15, strokeRate = 2.4 },
+	Rowboat = { accel = 15, strokeRate = 2.4, oars = true },
 	Kayak = { accel = 22 },
 	Sloop = { accel = 26, noPaddle = true },
 	Warship = { accel = 30, noPaddle = true, cannons = true },
@@ -283,6 +327,16 @@ function BoatModels.Build(id: string, cf: CFrame, display: boolean?)
 	local s = SETTINGS[id]
 	if not display then
 		m:SetAttribute("Accel", s.accel)
+		local cfgBoat = (BoatsCfg :: any)[id]
+		if cfgBoat and cfgBoat.speed then
+			m:SetAttribute("TopSpeed", cfgBoat.speed)
+		end
+		if cfgBoat and cfgBoat.turnIdle then
+			m:SetAttribute("TurnIdle", cfgBoat.turnIdle)
+		end
+		if s.oars and m:FindFirstChild("OarlockL", true) then
+			m:SetAttribute("Oars", true)
+		end
 		if s.strokeRate then
 			m:SetAttribute("StrokeRate", s.strokeRate)
 		end
