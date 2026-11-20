@@ -4,6 +4,15 @@
 local Fishing = {
 	CastRange = 25, -- spot'a en fazla kaç stud uzaktan olta atılabilir
 
+	-- Açık deniz: işaretli spot olmasa da suya olta atılabilir.
+	-- Bölge, okyanusun merkezine uzaklıkla belirlenir (stud): near'dan yakın = Near, mid'den yakın = Mid, ötesi = Far
+	OpenWaterCastDistance = 16, -- karakterin önünde oltanın düştüğü mesafe
+	OpenWater = {
+		Warm = { near = 600, mid = 1150 },
+		Coral = { near = 750, mid = 1250 },
+	},
+	HotspotLuck = 1.25, -- işaretli (renkli) spotlarda şans bonusu
+
 	-- Bekleme ve vurma
 	WaitMin = 1.2, -- olta atıldıktan sonra en az bekleme (sn)
 	WaitMax = 3.0, -- en fazla bekleme (sn)

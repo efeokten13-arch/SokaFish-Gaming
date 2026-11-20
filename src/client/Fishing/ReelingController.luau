@@ -23,6 +23,7 @@ local Config = Shared:WaitForChild("Config")
 local Fish = require(Config:WaitForChild("Fish"))
 local Rarities = require(Config:WaitForChild("Rarities"))
 local Cfg = require(Config:WaitForChild("Fishing"))
+local FishingWater = require(Config.Parent:WaitForChild("FishingWater"))
 local Remotes = require(Shared:WaitForChild("Remotes"))
 local FishModelBuilder = require(Shared:WaitForChild("FishModelBuilder"))
 
@@ -35,6 +36,7 @@ local MESSAGES = {
 	full = "Tekne deposu dolu! Limana dön",
 	far = "Spot'a çok uzaksın",
 	nofish = "Burada balık yok",
+	notwater = "Buraya olta atamazsın, suya dön",
 	invalid = "Bir şeyler ters gitti",
 }
 
@@ -48,6 +50,7 @@ local phase = "idle" -- idle | waiting | bite | hooking | reeling | sent | coold
 local holding = false
 local activeInput: InputObject? = nil
 local nearSpot: BasePart? = nil
+local openWaterPoint: Vector3? = nil -- işaretli spot yoksa önündeki su noktası
 local phaseSince = os.clock() -- zaman aşımı kontrolü için
 
 local barSpeed, targetSize = 1, 0.3
@@ -272,12 +275,13 @@ end
 local function press()
 	holding = true
 	if phase == "idle" then
-		if not nearSpot then
+		local target: any = nearSpot or openWaterPoint
+		if not target then
 			return
 		end
 		phase = "waiting"
 		setState("Bekleniyor...", "Bekle")
-		Remotes.Event("CastRequest"):FireServer(nearSpot)
+		Remotes.Event("CastRequest"):FireServer(target)
 	elseif phase == "waiting" then
 		-- erken bastı: server "early" diyecek
 		Remotes.Event("HookRequest"):FireServer()
@@ -342,6 +346,30 @@ local function findNearestSpot(): BasePart?
 		end
 	end
 	return best
+end
+
+-- Açık deniz: kameranın baktığı yönde, karakterin önündeki nokta su mu?
+local function findOpenWater(): Vector3?
+	local char = player.Character
+	local root = char and char:FindFirstChild("HumanoidRootPart") :: BasePart?
+	local cam = Workspace.CurrentCamera
+	if not root or not cam then
+		return nil
+	end
+	local look = cam.CFrame.LookVector
+	local dir = Vector3.new(look.X, 0, look.Z)
+	if dir.Magnitude < 0.01 then
+		dir = root.CFrame.LookVector
+	end
+	dir = Vector3.new(dir.X, 0, dir.Z).Unit
+	local base = Cfg.OpenWaterCastDistance
+	for _, d in { base, base - 5, base + 5 } do
+		local p = root.Position + dir * d
+		if FishingWater.IsWater(p) then
+			return Vector3.new(p.X, 0, p.Z)
+		end
+	end
+	return nil
 end
 
 -- Reeling döngüsü -----------------------------------------------------------
@@ -427,7 +455,8 @@ function ReelingController.Init()
 		if scanTimer <= 0 then
 			scanTimer = 0.2
 			nearSpot = findNearestSpot()
-			button.Visible = nearSpot ~= nil or phase ~= "idle"
+			openWaterPoint = if nearSpot then nil else findOpenWater()
+			button.Visible = nearSpot ~= nil or openWaterPoint ~= nil or phase ~= "idle"
 		end
 		if phase == "reeling" then
 			updateReel(dt)

@@ -46,11 +46,8 @@ local Map = {
 	Hall = { x = -20, z = -118, width = 64, depth = 38 },
 	Plaza = { x = -20, z = 18, radius = 40 },
 
-	Spots = {
-		Near = { count = 6, radius = 450, offset = 0 },
-		Mid = { count = 6, radius = 980, offset = 30 },
-		Far = { count = 4, radius = 1450, offset = 45 },
-	},
+	-- İşaretli balık noktası yok: açık denizin her yerinde balık tutulur (bkz. Config/Fishing.OpenWater)
+	Spots = {},
 
 	Water = {
 		color = Color3.fromRGB(30, 158, 198),

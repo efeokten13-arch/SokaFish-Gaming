@@ -25,11 +25,7 @@ return {
 	},
 	Labyrinth = { x0 = -1420, x1 = -860, z0 = -420, z1 = 820 },
 	Wall = 1560, -- görünmez sınır (dağların önünde)
-	Spots = {
-		{ "Near", -120, -40 }, { "Near", 140, 60 }, { "Near", 0, -200 }, { "Near", -60, 220 },
-		{ "Mid", -1060, 100 }, { "Mid", -960, 600 }, { "Mid", 720, -380 }, { "Mid", 560, 1000 }, { "Mid", -620, -1000 },
-		{ "Far", -1150, -1150 }, { "Far", 1180, -1150 }, { "Far", 1200, 1000 }, { "Far", -1150, 1150 },
-	},
+	Spots = {}, -- işaretli nokta yok: açık denizin her yerinde balık tutulur
 	-- Atoldeki su rengi (sadece oyuncu atoldeyken; ana adanın suyu değişmez)
 	Water = {
 		color = Color3.fromRGB(30, 158, 170),
