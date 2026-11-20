@@ -32,6 +32,8 @@ local EVENTS = {
 
 	-- Giriş öğreticisi (yaşlı balıkçı ile sinematik sohbet)
 	"IntroStart", -- server -> client: öğreticiyi başlat
+	"PoolTake", -- client -> server: havuzdaki i. balığı tekneye (envantere) al
+	"CoinBurst", -- server -> client: satıştan para geldi (miktar) -> ekranda para animasyonu
 	"GuideStep", -- server -> client: rehber adımı (id, görev yazısı, havuz parçası)
 }
 

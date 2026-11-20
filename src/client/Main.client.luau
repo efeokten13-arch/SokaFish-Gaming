@@ -16,5 +16,7 @@ require(Client.Effects.SoundController).Init()
 require(Client.Effects.StormClouds).Init()
 require(Client.Tutorial.IntroController).Init()
 require(Client.Tutorial.GuideController).Init()
+require(Client.UI.PoolScreen).Init()
+require(Client.Effects.CoinBurst).Init()
 
 print("[Client] Hazır")

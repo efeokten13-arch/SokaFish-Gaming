@@ -34,6 +34,14 @@ local function destination(player: Player, kind: string): CFrame?
 			Remotes.Event("GuideTarget"):FireClient(player, torso, "Old Finn")
 		end
 		return nil
+	elseif kind == "Market" then
+		-- balık pazarının ada tarafındaki tezgahının önü, pazara bakarak
+		local market = Workspace:FindFirstChild("FishMarket")
+		local plat = market and market:FindFirstChild("Platform") :: BasePart?
+		if plat then
+			local front = plat.Position + Vector3.new(0, 4, plat.Size.Z / 2 - 2)
+			return CFrame.lookAt(front, plat.Position + Vector3.new(0, 4, 0))
+		end
 	elseif kind == "Main" then
 		local sp = Workspace:FindFirstChildOfClass("SpawnLocation")
 		if sp then

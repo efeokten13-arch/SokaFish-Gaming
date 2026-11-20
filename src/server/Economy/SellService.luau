@@ -4,6 +4,7 @@ local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local Workspace = game:GetService("Workspace")
 local Fish = require(ReplicatedStorage:WaitForChild("Shared"):WaitForChild("Config"):WaitForChild("Fish"))
 local DataService = require(script.Parent.Parent.Data.DataService)
+local Remotes = require(ReplicatedStorage:WaitForChild("Shared"):WaitForChild("Remotes"))
 
 local SellService = {}
 
@@ -32,6 +33,7 @@ local function sellAll(player: Player)
 		total += SellService.SellSlot(data, 1)
 	end
 	DataService.Notify(player, "Sold " .. n .. " fish for $" .. total, Color3.fromRGB(255, 214, 80))
+	Remotes.Event("CoinBurst"):FireClient(player, total)
 	DataService.Push(player)
 end
 

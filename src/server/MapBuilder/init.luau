@@ -75,6 +75,11 @@ function Builder.IslandBooks()
 	require(script.Islands).AddBooks(cfg())
 end
 
+-- Adalara havuz TV'si ekle (adaları yeniden kurmadan)
+function Builder.IslandScreens()
+	require(script.Islands).AddScreens(cfg())
+end
+
 -- Adalara toprak patikalar ekle (adaları yeniden kurmadan)
 function Builder.IslandPaths()
 	require(script.Islands).AddPaths(cfg())

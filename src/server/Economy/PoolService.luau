@@ -9,6 +9,8 @@ local Shared = ReplicatedStorage:WaitForChild("Shared")
 local Config = Shared:WaitForChild("Config")
 local Fish = require(Config:WaitForChild("Fish"))
 local Economy = require(Config:WaitForChild("Economy"))
+local Boats = require(Config:WaitForChild("Boats"))
+local Remotes = require(Shared:WaitForChild("Remotes"))
 local FishModelBuilder = require(Shared:WaitForChild("FishModelBuilder"))
 local DataService = require(script.Parent.Parent.Data.DataService)
 local GuideService = require(script.Parent.Parent.Guide.GuideService)
@@ -159,7 +161,36 @@ local function animate(t: number)
 	end
 end
 
+-- Havuz TV'sinden: havuzdaki balığı tekneye (envantere) geri al
+local function take(player: Player, index: any)
+	local data = DataService.Get(player) :: any
+	if not data or type(index) ~= "number" then
+		return
+	end
+	index = math.floor(index)
+	local fishId = data.pool[index]
+	if not fishId then
+		return
+	end
+	local boat = (Boats :: any)[data.boat]
+	local slots = if boat then boat.slots else 3
+	if #data.storage >= slots then
+		DataService.Notify(player, "Your boat is full! Sell some fish first.", RED)
+		return
+	end
+	table.remove(data.pool, index)
+	table.insert(data.storage, fishId)
+	local def = Fish[fishId]
+	DataService.Notify(player, (def and def.displayName or fishId) .. " moved to your boat", GREEN)
+	DataService.Push(player)
+	local island = islandOf(player)
+	if island then
+		refreshVisuals(island, data)
+	end
+end
+
 function PoolService.Init()
+	Remotes.Event("PoolTake").OnServerEvent:Connect(take)
 	task.spawn(function()
 		local folder = Workspace:WaitForChild("PrivateIslands", 60)
 		if not folder then
