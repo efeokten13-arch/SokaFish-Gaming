@@ -13,6 +13,7 @@
 --                   "Dest"  -> Workspace.SeaMapDestinations içindeki, id ile aynı isimli Part
 --                   nil     -> henüz yapılmadı ("coming soon" mesajı)
 --   seed          elle çizilen adanın şekli (farklı sayı = farklı şekil)
+--   theme         elle çizilen portrenin stili
 
 export type SeaIsland = {
 	id: string,
@@ -24,6 +25,7 @@ export type SeaIsland = {
 	description: string,
 	travel: string?,
 	seed: number,
+	theme: string?,
 }
 
 local SeaMap = {}
@@ -43,27 +45,18 @@ SeaMap.ComingSoonMessage = "This island hasn't been charted yet. Coming soon!"
 -- Parşömen için kendi görselini kullanmak istersen buraya yaz ("" = kodla çizilir)
 SeaMap.ParchmentImage = ""
 
+-- theme: elle çizilen portrenin stili ("tropical", "coral", "swamp", "ice", "volcano")
 SeaMap.Islands = {
-	{ id = "Harbor", name = "Harbor Isle", x = 0.50, y = 0.88, level = 0, image = "", seed = 1, travel = "Main",
-		description = "The home harbor. Fish Market, boat shop and the Old Fisherman." },
-	{ id = "Driftwood", name = "Driftwood Cay", x = 0.73, y = 0.77, level = 1, image = "", seed = 2,
-		description = "Calm shallows full of common fish." },
-	{ id = "Gull", name = "Gull Rock", x = 0.28, y = 0.68, level = 1, image = "", seed = 3,
-		description = "Seabirds circle over the reefs." },
-	{ id = "Coral", name = "Coral Crown", x = 0.70, y = 0.59, level = 2, image = "", seed = 4,
-		description = "Bright reefs and rare fish." },
-	{ id = "Mist", name = "Mistwood", x = 0.30, y = 0.50, level = 2, image = "", seed = 5,
-		description = "Fog hides what swims below." },
-	{ id = "Smuggler", name = "Smuggler's Cove", x = 0.72, y = 0.41, level = 2, image = "", seed = 6,
-		description = "Old crates and older secrets." },
-	{ id = "Serpent", name = "Serpent Spine", x = 0.33, y = 0.32, level = 3, image = "", seed = 7,
-		description = "Deep water. Big fish. Bigger danger." },
-	{ id = "Bones", name = "Bone Shoals", x = 0.66, y = 0.24, level = 3, image = "", seed = 8,
-		description = "Shipwrecks litter the sand." },
-	{ id = "Storm", name = "Stormbreak", x = 0.38, y = 0.16, level = 4, image = "", seed = 9,
-		description = "Only warships survive these waves." },
-	{ id = "Treasure", name = "Skull Treasure Isle", x = 0.60, y = 0.08, level = 4, image = "", seed = 10,
-		description = "Where the legends end... and the treasure begins." },
+	{ id = "Warm", name = "Warm Waters", x = 0.16, y = 0.34, level = 0, image = "", theme = "tropical", seed = 1, travel = "Main",
+		description = "The peaceful starting seas. Rich with common fish, gentle waves, and busy docks." },
+	{ id = "Coral", name = "Ancient Coral Atoll", x = 0.35, y = 0.66, level = 1, image = "", theme = "coral", seed = 2, travel = "Dest",
+		description = "Bright reefs around forgotten ruins. Colorful and rare fish." },
+	{ id = "Swamp", name = "Shrouded Swamp", x = 0.53, y = 0.34, level = 2, image = "", theme = "swamp", seed = 3,
+		description = "Murky water under twisted trees. Strange fish hide in the fog." },
+	{ id = "Frost", name = "Frostbite Fjord", x = 0.71, y = 0.66, level = 3, image = "", theme = "ice", seed = 4,
+		description = "Freezing water between icy cliffs. Only sturdy boats survive." },
+	{ id = "Ashen", name = "Ashen Caldera", x = 0.88, y = 0.34, level = 4, image = "", theme = "volcano", seed = 5,
+		description = "A burning volcano. Legendary fish swim in the hot sea." },
 }
 
 -- Oyuncunun tekne seviyesi (sahip olunan teknelerden en yükseği)

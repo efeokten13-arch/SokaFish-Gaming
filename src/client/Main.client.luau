@@ -9,5 +9,7 @@ require(Client.Map.IslandGuide).Init()
 require(Client.UI.CollectionBook).Init()
 require(Client.UI.SeaMap).Init()
 require(Client.Effects.BoatWake).Init()
+require(Client.Effects.RegionWater).Init()
+require(Client.Combat.CannonController).Init()
 
 print("[Client] Hazır")

@@ -42,7 +42,8 @@ local function setup(model)
 		t.Parent = hull
 		table.insert(trails, t)
 	end
-	wakes[model] = { hull = hull, trails = trails }
+	local wheel = model:FindFirstChild("Wheel")
+	wakes[model] = { hull = hull, trails = trails, wheel = wheel and wheel:FindFirstChild("Hinge"), seat = model:FindFirstChildWhichIsA("VehicleSeat", true), spin = 0 }
 end
 
 function BoatWake.Init()
@@ -54,6 +55,19 @@ function BoatWake.Init()
 	end)
 	CollectionService:GetInstanceRemovedSignal("Kayak"):Connect(function(m)
 		wakes[m] = nil
+	end)
+	-- dümen tekerleği: sürücünün sağa/sola girdisine göre döner (sadece görsel)
+	RunService.RenderStepped:Connect(function(dt)
+		for _, w in wakes do
+			if w.wheel and w.seat then
+				local target = (w.seat.Occupant and w.seat.SteerFloat or 0) * 1.6
+				w.spin += (target - w.spin) * math.min(1, dt * 6)
+				local base = w.wheel:GetAttribute("BaseC0")
+				if base then
+					w.wheel.C0 = base * CFrame.Angles(w.spin, 0, 0)
+				end
+			end
+		end
 	end)
 	-- 5 kez/saniye kontrol yeter
 	local acc = 0

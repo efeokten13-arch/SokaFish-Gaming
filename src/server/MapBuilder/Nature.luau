@@ -139,8 +139,7 @@ function Nature.Vegetation(cfg)
 	local blocks = {
 		{ P.x, P.z, P.radius + 6 },
 		{ H.x, H.z, 52 },
-		{ cfg.Pier.startX - 18, -20, 18 },
-		{ 120, 85, 16 },
+		{ cfg.Pier.startX, cfg.Pier.walkZ, 14 },
 		{ -135, 70, 16 },
 		{ -150, -60, 16 },
 	}

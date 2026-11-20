@@ -64,6 +64,38 @@ local function guardSeat(model: Model, owner: Player)
 	end)
 end
 
+-- Dümen butonu: tekneye yaklaşınca "☸ Steer" çıkar; dokunarak oturma kapalı (yanlışlıkla binilmesin)
+local function addSteerPrompt(model: Model, owner: Player)
+	local seat = model:FindFirstChildWhichIsA("VehicleSeat", true) :: VehicleSeat?
+	if not seat then
+		return
+	end
+	seat.CanTouch = false
+	local info = (Boats :: any)[model:GetAttribute("BoatId") :: string]
+	local prompt = Instance.new("ProximityPrompt")
+	prompt.Name = "SteerPrompt"
+	prompt.ActionText = "☸ Steer"
+	prompt.ObjectText = info and info.displayName or "Boat"
+	prompt.HoldDuration = 0
+	prompt.MaxActivationDistance = 12
+	prompt.RequiresLineOfSight = false
+	prompt.KeyboardKeyCode = Enum.KeyCode.E
+	prompt.Parent = seat
+	prompt.Triggered:Connect(function(p)
+		if p ~= owner then
+			DataService.Notify(p, "This is " .. owner.DisplayName .. "'s boat", RED)
+			return
+		end
+		local hum = p.Character and p.Character:FindFirstChildOfClass("Humanoid")
+		if hum and not seat.Occupant then
+			seat:Sit(hum)
+		end
+	end)
+	seat:GetPropertyChangedSignal("Occupant"):Connect(function()
+		prompt.Enabled = seat.Occupant == nil
+	end)
+end
+
 local function place(player: Player, id: string, cf: CFrame): Model?
 	local old = spawned[player]
 	if old then
@@ -78,6 +110,7 @@ local function place(player: Player, id: string, cf: CFrame): Model?
 	model.Parent = folder()
 	spawned[player] = model
 	guardSeat(model, player)
+	addSteerPrompt(model, player)
 	return model
 end
 
@@ -94,6 +127,28 @@ function BoatService.BringToDock(player: Player, island: Instance)
 	local side = Vector3.new(-flat.Z, 0, flat.X)
 	local pos = Vector3.new(dock.Position.X, 0.65, dock.Position.Z) + side * 9 + flat * 2
 	local cf = CFrame.lookAt(pos, pos + flat)
+	local boat = spawned[player]
+	if boat and boat.Parent then
+		local seat = boat:FindFirstChildWhichIsA("VehicleSeat", true) :: VehicleSeat?
+		if seat and seat.Occupant then
+			seat.Occupant.Sit = false
+		end
+		boat:PivotTo(cf)
+		if boat.PrimaryPart then
+			boat.PrimaryPart.AssemblyLinearVelocity = Vector3.zero
+			boat.PrimaryPart.AssemblyAngularVelocity = Vector3.zero
+		end
+	else
+		place(player, bestBoat(data), cf)
+	end
+end
+
+-- Teknesini (yoksa en iyi teknesini) verilen yere getirir (haritadan yolculukta kullanılır)
+function BoatService.BringTo(player: Player, cf: CFrame)
+	local data = DataService.Get(player)
+	if not data or #data.ownedBoats == 0 then
+		return
+	end
 	local boat = spawned[player]
 	if boat and boat.Parent then
 		local seat = boat:FindFirstChildWhichIsA("VehicleSeat", true) :: VehicleSeat?
@@ -182,7 +237,7 @@ function BoatService.Init()
 				prompt.ActionText = "Buy ($" .. info.price .. ") / Sail"
 				prompt.ObjectText = info.displayName
 				prompt.HoldDuration = 0.3
-				prompt.MaxActivationDistance = 16
+				prompt.MaxActivationDistance = 26
 				prompt.RequiresLineOfSight = false
 				prompt.Parent = hull
 				prompt.Triggered:Connect(function(p)

@@ -33,13 +33,16 @@ function Structures.Plaza(cfg)
 	Land.paintDisc(P.x, P.z, P.radius * 0.62, Enum.Material.Slate, Enum.Material.Cobblestone)
 	-- yollar: plazadan iskeleye, hole, kulübelere, balıkçıya, sahillere
 	local SAND = Enum.Material.Sandstone
-	Land.path(Vector3.new(P.x + P.radius - 4, 0, P.z), Vector3.new(cfg.Pier.startX, 0, 0), 6, SAND)
-	Land.path(Vector3.new(P.x, 0, P.z - P.radius + 4), Vector3.new(cfg.Hall.x, 0, cfg.Hall.z + cfg.Hall.depth / 2 + 4), 6, SAND)
-	for _, h in { { 120, 85 }, { -135, 70 }, { -150, -60 } } do
-		Land.path(Vector3.new(P.x, 0, P.z), Vector3.new(h[1], 0, h[2] + 10), 4, SAND)
+	Land.path(Vector3.new(P.x + P.radius - 4, 0, P.z), Vector3.new(cfg.Pier.startX + 2, 0, cfg.Pier.walkZ), 6, SAND)
+	-- dalgalı patikalar (doğal görünüm)
+	Land.wavyPath(Vector3.new(P.x, 0, P.z - P.radius + 4), Vector3.new(cfg.Hall.x, 0, cfg.Hall.z + cfg.Hall.depth / 2 + 4), 6, SAND, 11, 4, 1)
+	for i, h in { { -135, 70 }, { -150, -60 } } do
+		local a = Vector3.new(P.x, 0, P.z)
+		local b = Vector3.new(h[1], 0, h[2] + 10)
+		Land.wavyPath(a + (b - a).Unit * (P.radius - 4), b, 4.5, SAND, 20 + i, 6, 1.5)
 	end
-	Land.path(Vector3.new(P.x, 0, P.z + P.radius - 4), Vector3.new(P.x, 0, 205), 5, SAND)
-	Land.path(Vector3.new(P.x - P.radius + 4, 0, P.z), Vector3.new(-215, 0, P.z), 5, SAND)
+	Land.wavyPath(Vector3.new(P.x, 0, P.z + P.radius - 4), Vector3.new(P.x, 0, 200), 5, SAND, 31, 6, 1.5)
+	Land.wavyPath(Vector3.new(P.x - P.radius + 4, 0, P.z), Vector3.new(-200, 0, P.z), 5, SAND, 41, 6, 1.5)
 
 	local f = Util.fresh("Model", "Plaza")
 	local g = cfg.GrassY
@@ -285,98 +288,94 @@ function Structures.Fisherman(cfg)
 	return m
 end
 
--- Doğu iskelesi (L şeklinde) + 5 tekne yuvası
+-- İskele: kıyıya paralel omurga + ortadan adaya yürüme yolu + adaya doğru parmaklar (tekne yuvaları)
 function Structures.Pier(cfg)
 	local P = cfg.Pier
 	local m = Util.fresh("Model", "Pier")
 	local y = cfg.DeckY
-	local function deck(name, x0, z0, x1, z1)
-		local len = math.max(math.abs(x1 - x0), math.abs(z1 - z0))
-		local alongX = math.abs(x1 - x0) > math.abs(z1 - z0)
-		local size = alongX and Vector3.new(len, 1, P.width) or Vector3.new(P.width, 1, len)
-		return Util.part(m, name, size, CFrame.new((x0 + x1) / 2, y - 0.5, (z0 + z1) / 2), WOOD, Enum.Material.WoodPlanks)
+	local W2 = P.width / 2
+	local function deckX(name, x0, x1, z, width)
+		return Util.part(m, name, Vector3.new(math.abs(x1 - x0), 1, width), CFrame.new((x0 + x1) / 2, y - 0.5, z), WOOD, Enum.Material.WoodPlanks)
 	end
-	local function posts(x0, z0, x1, z1, step, sideX, sideZ)
+	local function deckZ(name, z0, z1, x, width)
+		return Util.part(m, name, Vector3.new(width, 1, math.abs(z1 - z0)), CFrame.new(x, y - 0.5, (z0 + z1) / 2), WOOD, Enum.Material.WoodPlanks)
+	end
+	local function pilings(x0, z0, x1, z1, step, offX, offZ)
 		local len = math.sqrt((x1 - x0) ^ 2 + (z1 - z0) ^ 2)
 		local n = math.max(1, math.floor(len / step))
 		for i = 0, n do
 			local t = i / n
 			local x, z = x0 + (x1 - x0) * t, z0 + (z1 - z0) * t
-			for _, s in { -1, 1 } do
-				Util.pole(m, "Piling", x + sideX * s * (P.width / 2 - 0.6), z + sideZ * s * (P.width / 2 - 0.6), -10, y + 1.8, 1.1, DARK, Enum.Material.Wood)
+			for _, sgn in { -1, 1 } do
+				local px, pz = x + offX * sgn, z + offZ * sgn
+				local gy = Util.groundY(px, pz)
+				if not gy or gy < 1 then -- karada kazık olmasın
+					Util.pole(m, "Piling", px, pz, -10, y + 1.8, 1.1, DARK, Enum.Material.Wood)
+				end
 			end
 		end
 	end
-	-- bağlantı yolu (karadan ana iskeleye)
-	deck("Connector", P.startX, 0, P.x + P.width / 2, 0)
-	posts(P.startX + 30, 0, P.x, 0, 12, 0, 1)
-	-- ana iskele (kuzey-güney)
-	deck("MainPier", P.x, P.zTop, P.x, P.zBottom)
-	posts(P.x, P.zTop, P.x, P.zBottom, 12, 1, 0)
-	-- parmak iskeleler: slot i, parmak i ile i+1 arasında
-	local fingerLen = 34
-	local x0 = P.x + P.width / 2
-	for k = 0, P.slots do
-		local z = P.firstSlotZ - P.slotSpacing / 2 + k * P.slotSpacing
-		Util.part(m, "Finger", Vector3.new(fingerLen, 1, 3), CFrame.new(x0 + fingerLen / 2, y - 0.5, z), WOOD, Enum.Material.WoodPlanks)
-		for _, px in { x0 + 3, x0 + fingerLen - 2 } do
-			Util.pole(m, "Piling", px, z, -10, y + 1.5, 0.9, DARK, Enum.Material.Wood)
-		end
+	-- omurga (güney ucu karadaki çıkıntıya girer)
+	deckZ("Spine", P.zTop, P.zBottom, P.x, P.width)
+	pilings(P.x, P.zTop, P.x, P.zBottom, 12, W2 - 0.6, 0)
+	-- ortadan adaya yürüme yolu
+	deckX("Walkway", P.startX, P.x - W2, P.walkZ, 8)
+	pilings(P.startX + 6, P.walkZ, P.x - W2, P.walkZ, 12, 0, 3.4)
+	-- parmaklar: omurgadan adaya doğru (-X)
+	local xIn = P.x - W2
+	for _, z in P.fingers do
+		Util.part(m, "Finger", Vector3.new(P.fingerLen, 1, 3), CFrame.new(xIn - P.fingerLen / 2, y - 0.5, z), WOOD, Enum.Material.WoodPlanks)
+		Util.pole(m, "Piling", xIn - P.fingerLen + 2, z, -10, y + 1.5, 0.9, DARK, Enum.Material.Wood)
+		Util.pole(m, "Piling", xIn - P.fingerLen / 2, z, -10, y + 1.5, 0.9, DARK, Enum.Material.Wood)
 	end
-	-- Vitrin: satılık tekneler (BoatService bunlara "Buy" düğmesi ekler)
+	-- Vitrin: satılık tekneler (BoatService bunlara "Buy" düğmesi ekler); suya indirme iskelenin deniz tarafında
 	local showroom = Instance.new("Folder")
 	showroom.Name = "Showroom"
 	showroom.Parent = m
 	local spawn
-	for i = 0, P.slots - 1 do
-		local z = P.firstSlotZ + i * P.slotSpacing
-		local id = BoatsCfg.ShopOrder[i + 1]
+	for i, z in P.slipZ do
+		local id = BoatsCfg.ShopOrder[i]
 		local info = id and BoatsCfg[id]
-		Util.pole(m, "SlotPost", x0 + 1.5, z, y, y + 5, 0.6, DARK, Enum.Material.Wood)
-		local sb = Util.part(m, "SlotSign", Vector3.new(0.4, 3.4, 6.5), CFrame.new(x0 + 1.5, y + 6.6, z), Color3.fromRGB(40, 90, 120), Enum.Material.WoodPlanks)
+		Util.pole(m, "SlotPost", xIn - 1.5, z, y, y + 5, 0.6, DARK, Enum.Material.Wood)
+		local sb = Util.part(m, "SlotSign", Vector3.new(0.4, 3.4, 6.5), CFrame.new(xIn - 1.5, y + 6.6, z), Color3.fromRGB(40, 90, 120), Enum.Material.WoodPlanks)
 		local text = info and (string.upper(info.displayName) .. "  $" .. info.price .. "\nSpeed " .. info.speed .. "  ·  Slots " .. info.slots) or "COMING SOON"
 		Util.sign(sb, Enum.NormalId.Right, text, CREAM)
 		Util.sign(sb, Enum.NormalId.Left, text, CREAM)
 		if id then
-			local cf = CFrame.lookAt(Vector3.new(x0 + 18, 0.65, z), Vector3.new(x0 + 19, 0.65, z))
+			local cx = xIn - P.fingerLen / 2 - 1
+			-- burnu iskeleye (denize) bakar
+			local cf = CFrame.lookAt(Vector3.new(cx, 0.65, z), Vector3.new(cx + 1, 0.65, z))
 			local boat = BoatModels.Build(id, cf, true)
-			boat:SetAttribute("Launch", CFrame.lookAt(Vector3.new(x0 + fingerLen + 26, 0.65, z), Vector3.new(x0 + fingerLen + 27, 0.65, z)))
-			boat.Parent = showroom
-			if i == 0 then
-				spawn = Util.zone(m, "BoatSpawn", Vector3.new(10, 1, 10), CFrame.new(x0 + fingerLen + 26, 1, z))
+			if boat then
+				local lx = P.x + W2 + 30
+				boat:SetAttribute("Launch", CFrame.lookAt(Vector3.new(lx, 0.65, z), Vector3.new(lx + 1, 0.65, z)))
+				boat.Parent = showroom
+				if i == 1 then
+					spawn = Util.zone(m, "BoatSpawn", Vector3.new(10, 1, 10), CFrame.new(lx, 1, z))
+				end
 			end
 		end
 	end
-	-- Tekne dükkanı kulübesi (iskele girişinde, karada)
-	local kx, kz = cfg.Pier.startX - 18, -20
-	Land.paintRect(kx, kz, 22, 18, Enum.Material.Ground)
-	local kiosk = Instance.new("Model")
-	kiosk.Name = "BoatShopKiosk"
-	Util.part(kiosk, "Base", Vector3.new(16, 1, 12), CFrame.new(kx, cfg.GrassY + 0.5, kz), Color3.fromRGB(150, 150, 156), Enum.Material.Cobblestone)
-	Util.part(kiosk, "Back", Vector3.new(14, 8, 1), CFrame.new(kx, cfg.GrassY + 5, kz - 5), WALL, WALLMAT)
-	Util.part(kiosk, "Left", Vector3.new(1, 8, 10), CFrame.new(kx - 7, cfg.GrassY + 5, kz), WALL, WALLMAT)
-	Util.part(kiosk, "Right", Vector3.new(1, 8, 10), CFrame.new(kx + 7, cfg.GrassY + 5, kz), WALL, WALLMAT)
-	Util.part(kiosk, "Roof", Vector3.new(18, 1, 14), CFrame.new(kx, cfg.GrassY + 9.5, kz), ROOF, Enum.Material.Slate)
-	local shop = Util.part(m, "BoatShop", Vector3.new(12, 3.5, 2.5), CFrame.new(kx, cfg.GrassY + 2.2, kz + 3), WOOD, Enum.Material.WoodPlanks)
-	local ks = Util.part(kiosk, "ShopSign", Vector3.new(12, 3, 0.5), CFrame.new(kx, cfg.GrassY + 11.5, kz + 6.5), Color3.fromRGB(40, 90, 120), Enum.Material.WoodPlanks)
-	Util.sign(ks, Enum.NormalId.Back, "BOAT SHOP", CREAM)
-	local menu = Util.part(kiosk, "Menu", Vector3.new(8, 4, 0.3), CFrame.new(kx, cfg.GrassY + 6, kz - 4.4), Color3.fromRGB(240, 230, 205), Enum.Material.WoodPlanks)
+	-- yürüme yolunun karadaki ucunda tekne dükkanı tabelası ve fiyat listesi
+	local sx, sz = P.startX + 2, P.walkZ
+	for _, dz in { -4.6, 4.6 } do
+		Util.pole(m, "ArchPost", sx, sz + dz, y, y + 11, 0.9, DARK, Enum.Material.Wood)
+	end
+	local arch = Util.part(m, "BoatShop", Vector3.new(1, 3, 11), CFrame.new(sx, y + 10, sz), Color3.fromRGB(40, 90, 120), Enum.Material.WoodPlanks)
+	Util.sign(arch, Enum.NormalId.Left, "BOAT SHOP", CREAM)
+	Util.sign(arch, Enum.NormalId.Right, "BOAT SHOP", CREAM)
 	local lines = {}
 	for _, id in BoatsCfg.ShopOrder do
 		table.insert(lines, BoatsCfg[id].displayName .. " - $" .. BoatsCfg[id].price)
 	end
-	Util.sign(menu, Enum.NormalId.Back, table.concat(lines, "\n") .. "\nBuy at the pier!", Color3.fromRGB(60, 40, 25))
-	kiosk.Parent = m
-	shop.Parent = m
-
-	-- iskele başında büyük tabela + fenerler
-	local arch = Util.part(m, "PierSign", Vector3.new(1, 4, 16), CFrame.new(P.x - P.width / 2 - 0.5, y + 10, P.zTop + 6), Color3.fromRGB(40, 90, 120), Enum.Material.WoodPlanks)
-	Util.sign(arch, Enum.NormalId.Left, "HARBOR", CREAM)
-	Util.pole(m, "SignPost", P.x - P.width / 2 - 0.5, P.zTop + 1, y, y + 8, 0.8, DARK, Enum.Material.Wood)
-	Util.pole(m, "SignPost2", P.x - P.width / 2 - 0.5, P.zTop + 11, y, y + 8, 0.8, DARK, Enum.Material.Wood)
-	for z = P.zTop + 10, P.zBottom, 30 do
-		Decor.lamp(m, Vector3.new(P.x - P.width / 2 + 0.8, y, z))
+	local menu = Util.part(m, "Menu", Vector3.new(0.3, 4.6, 6), CFrame.new(sx - 6, y + 3.2, sz - 7.5), Color3.fromRGB(240, 230, 205), Enum.Material.WoodPlanks)
+	Util.sign(menu, Enum.NormalId.Left, table.concat(lines, "\n"), Color3.fromRGB(60, 40, 25))
+	Util.pole(m, "MenuPost", sx - 6, sz - 7.5, cfg.GrassY - 2, y + 0.9, 0.5, DARK, Enum.Material.Wood)
+	-- fenerler
+	for z = P.zTop + 14, P.zBottom, 30 do
+		Decor.lamp(m, Vector3.new(P.x + W2 - 0.8, y, z))
 	end
+	Decor.lamp(m, Vector3.new((P.startX + P.x) / 2, y, P.walkZ + 3.4))
 	m.PrimaryPart = spawn
 	return m
 end
@@ -387,7 +386,7 @@ function Structures.Props(cfg)
 	local g = cfg.GrassY
 	local rng = Random.new(cfg.Seed + 5)
 	-- kulübeler
-	for _, h in { { 120, 85 }, { -135, 70 }, { -150, -60 } } do
+	for _, h in { { -135, 70 }, { -150, -60 } } do
 		local x, z = h[1], h[2]
 		Land.paintDisc(x, z, 11, Enum.Material.Ground)
 		Util.part(f, "HutBase", Vector3.new(16, 1, 14), CFrame.new(x, g + 0.5, z), STONE, Enum.Material.Cobblestone)
@@ -401,7 +400,6 @@ function Structures.Props(cfg)
 	-- ağ askıları
 	Decor.netRack(f, Vector3.new(-120, g, 120), Vector3.new(-96, g, 120), 9)
 	Decor.netRack(f, Vector3.new(60, g, 100), Vector3.new(84, g, 100), 9)
-	Decor.netRack(f, Vector3.new(160, g, -40), Vector3.new(160, g, -16), 9)
 	-- salon çevresi
 	for k = 0, 5 do
 		Decor.crate(f, Vector3.new(cfg.Hall.x - 36 - (k % 2) * 3.4, g, cfg.Hall.z + 26 + math.floor(k / 2) * 3.4), rng:NextNumber(0, 3))
@@ -418,8 +416,7 @@ function Structures.Props(cfg)
 		local okFar = true
 		if (Vector2.new(x, z) - Vector2.new(cfg.Plaza.x, cfg.Plaza.z)).Magnitude < cfg.Plaza.radius + 8 then okFar = false end
 		if math.abs(x - cfg.Hall.x) < cfg.Hall.width / 2 + 30 and math.abs(z - cfg.Hall.z) < cfg.Hall.depth / 2 + 30 then okFar = false end
-		if z > -14 and z < 14 and x > 0 then okFar = false end
-		if x > 40 and z > -20 and z < 30 then okFar = false end
+		if z > 8 and z < 28 and x > 0 then okFar = false end -- iskele yolu
 		local gy = Util.groundY(x, z)
 		if okFar and gy and gy > 4 and gy < 8 then
 			Decor.palm(f, Vector3.new(x, g, z), rng)

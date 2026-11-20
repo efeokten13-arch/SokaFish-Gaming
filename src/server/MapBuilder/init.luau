@@ -28,6 +28,20 @@ function Builder.Land()
 	Land.rocks(c)
 end
 
+-- 2. ada: Ancient Coral Atoll (ana denizden uzakta, ortak balık bölgesi)
+function Builder.Atoll(stage)
+	require(script.Atoll).Build(stage)
+end
+
+-- Ana adayı yeni kıyı çizgisine göre baştan kur (arazi + yapılar + bitkiler)
+function Builder.RebuildMainIsland()
+	local c = cfg()
+	require(script.Land).rebuildMain(c)
+	Builder.Structures()
+	Builder.Environment()
+	require(script.Nature).Vegetation(c)
+end
+
 -- Ana ada: plaza, Fish Market, tekne dükkanı, iskele, kulübeler
 function Builder.Structures()
 	local c = cfg()
@@ -115,7 +129,7 @@ function Builder.Environment()
 
 	-- Streaming: kenardaki dağlar uzaktan görünsün diye geniş yükleme mesafesi
 	-- (düşük bellekli cihazlarda Roblox bunu kendiliğinden azaltır)
-	workspace.StreamingTargetRadius = 2048
+	workspace.StreamingTargetRadius = 2800 -- atolde dağların görünmesi için
 	workspace.StreamingMinRadius = 128
 
 	local T = workspace.Terrain

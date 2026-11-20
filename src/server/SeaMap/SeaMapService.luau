@@ -7,6 +7,7 @@ local Players = game:GetService("Players")
 
 local SeaMap = require(ReplicatedStorage:WaitForChild("Shared"):WaitForChild("Config"):WaitForChild("SeaMap"))
 local DataService = require(script.Parent.Parent.Data.DataService)
+local BoatService = require(script.Parent.Parent.Boat.BoatService)
 
 local SeaMapService = {}
 
@@ -24,6 +25,22 @@ local function destination(isl: any): CFrame?
 		if part and part:IsA("BasePart") then
 			return part.CFrame + Vector3.new(0, 4, 0)
 		end
+	end
+	return nil
+end
+
+-- Teknenin geleceği yer: Main -> iskele BoatSpawn; Dest -> SeaMapDestinations.<id>_Boat
+local function boatDestination(isl: any): CFrame?
+	local part
+	if isl.travel == "Main" then
+		local pier = Workspace:FindFirstChild("Pier")
+		part = pier and pier:FindFirstChild("BoatSpawn")
+	elseif isl.travel == "Dest" then
+		local folder = Workspace:FindFirstChild("SeaMapDestinations")
+		part = folder and folder:FindFirstChild(isl.id .. "_Boat")
+	end
+	if part and part:IsA("BasePart") then
+		return CFrame.new(part.Position.X, 0.65, part.Position.Z) * part.CFrame.Rotation
 	end
 	return nil
 end
@@ -60,7 +77,15 @@ local function travel(player: Player, id: any)
 		hum.Sit = false
 		task.wait(0.1)
 	end
+	-- hedef bölgeyi oyuncu için önceden yükle (StreamingEnabled)
+	pcall(function()
+		player:RequestStreamAroundAsync(cf.Position, 5)
+	end)
 	char:PivotTo(cf)
+	local bcf = boatDestination(isl)
+	if bcf then
+		BoatService.BringTo(player, bcf)
+	end
 	DataService.Notify(player, "Arrived at " .. isl.name, Color3.fromRGB(255, 214, 80))
 end
 

@@ -238,7 +238,18 @@ end
 
 -- Balık noktaları: kanal (Near), halka dışı (Mid) ve açık deniz (Far)
 function Islands.Spots(cfg)
-	local folder = Util.fresh("Folder", "FishingSpots")
+	-- Atoll alt klasörüne dokunma (Atoll.lua kurar)
+	local folder = Workspace:FindFirstChild("FishingSpots")
+	if not folder then
+		folder = Instance.new("Folder")
+		folder.Name = "FishingSpots"
+		folder.Parent = Workspace
+	end
+	for _, c in folder:GetChildren() do
+		if c.Name ~= "Atoll" then
+			c:Destroy()
+		end
+	end
 	local colors = { Near = Color3.fromRGB(120, 235, 160), Mid = Color3.fromRGB(255, 214, 120), Far = Color3.fromRGB(255, 130, 130) }
 	for kind, s in cfg.Spots do
 		for i = 1, s.count do

@@ -14,7 +14,7 @@ local Remotes = require(Shared:WaitForChild("Remotes"))
 local SeaMapUI = {}
 
 local player = Players.LocalPlayer
-local ASPECT = 0.8 -- harita genişlik / yükseklik
+local ASPECT = 1.75 -- harita genişlik / yükseklik (yatay)
 
 -- Renkler
 local PARCH = Color3.fromRGB(233, 211, 166)
@@ -127,7 +127,7 @@ local function buildParchment(map)
 	for i = 1, 26 do
 		local side = i % 4
 		local t = rng:NextNumber(0.03, 0.97)
-		local d = rng:NextNumber(0.018, 0.045)
+		local d = rng:NextNumber(0.01, 0.025)
 		local x, y
 		if side == 0 then
 			x, y = t, rng:NextNumber(-0.004, 0.006)
@@ -142,7 +142,7 @@ local function buildParchment(map)
 	end
 	-- lekeler
 	for _ = 1, 9 do
-		dot(map, rng:NextNumber(0.1, 0.9), rng:NextNumber(0.1, 0.9), rng:NextNumber(0.05, 0.14), PARCH_DARK, rng:NextNumber(0.75, 0.88))
+		dot(map, rng:NextNumber(0.1, 0.9), rng:NextNumber(0.1, 0.9), rng:NextNumber(0.03, 0.08), PARCH_DARK, rng:NextNumber(0.75, 0.88))
 	end
 	-- iç çerçeve çizgisi
 	local border = frame(map, "Border", UDim2.fromScale(0.92, 0.94), UDim2.fromScale(0.04, 0.03), PARCH, 1)
@@ -157,7 +157,7 @@ end
 -- süsler: pusula, kafatası, çapa, dalgalar ---------------------------------------
 
 local function buildCompass(map)
-	local c = frame(map, "Compass", UDim2.fromScale(0.2, 0.2 * ASPECT), UDim2.fromScale(0.13, 0.78), PARCH, 1)
+	local c = frame(map, "Compass", UDim2.fromScale(0.11, 0.11 * ASPECT), UDim2.fromScale(0.11, 0.76), PARCH, 1)
 	c.AnchorPoint = Vector2.new(0.5, 0.5)
 	local ring = frame(c, "Ring", UDim2.fromScale(0.8, 0.8), UDim2.fromScale(0.1, 0.1), PARCH_DARK, 0.4)
 	corner(ring)
@@ -179,75 +179,149 @@ local function buildCompass(map)
 end
 
 local function buildDecor(map)
-	label(map, "☠", UDim2.fromScale(0.12, 0.1), UDim2.fromScale(0.83, 0.05), INK, Enum.Font.GothamBold)
-	label(map, "⚓", UDim2.fromScale(0.11, 0.09), UDim2.fromScale(0.83, 0.86), INK, Enum.Font.GothamBold)
-	local title = label(map, "SEA CHART", UDim2.fromScale(0.34, 0.055), UDim2.fromScale(0.07, 0.04), INK, Enum.Font.Fantasy)
+	local anchor = label(map, "⚓", UDim2.fromScale(0.06, 0.1), UDim2.fromScale(0.87, 0.78), Color3.fromRGB(40, 90, 150), Enum.Font.GothamBold)
+	anchor.ZIndex = 2
+	local title = label(map, "SEA CHART", UDim2.fromScale(0.3, 0.1), UDim2.fromScale(0.35, 0.07), INK, Enum.Font.Fantasy)
 	title.TextTransparency = 0.05
-	-- dalgalar
-	local rng = Random.new(5)
-	for _ = 1, 16 do
-		local w = label(map, "~", UDim2.fromScale(0.05, 0.03), UDim2.fromScale(rng:NextNumber(0.07, 0.88), rng:NextNumber(0.1, 0.92)), INK, Enum.Font.Gotham)
-		w.TextTransparency = 0.55
-		w.ZIndex = 1
+	-- dikiş izi (sağ üst köşe)
+	for k = 0, 4 do
+		local st = frame(map, "Stitch", UDim2.fromScale(0.004, 0.05), UDim2.fromScale(0.9 + k * 0.012, 0.06 + k * 0.025), INK, 0.2)
+		st.Rotation = 35
 	end
 end
 
 -- ada çizimi ---------------------------------------------------------------------
 
+-- Tema renkleri: { gökyüzü üst, gökyüzü alt / su, kara, vurgu }
+local THEMES = {
+	tropical = { Color3.fromRGB(120, 200, 245), Color3.fromRGB(40, 175, 200), Color3.fromRGB(80, 170, 70), Color3.fromRGB(235, 215, 150) },
+	coral = { Color3.fromRGB(110, 215, 225), Color3.fromRGB(30, 160, 175), Color3.fromRGB(225, 205, 150), Color3.fromRGB(235, 90, 150) },
+	swamp = { Color3.fromRGB(110, 130, 110), Color3.fromRGB(50, 70, 55), Color3.fromRGB(45, 70, 40), Color3.fromRGB(90, 70, 45) },
+	ice = { Color3.fromRGB(190, 225, 245), Color3.fromRGB(120, 175, 215), Color3.fromRGB(245, 250, 255), Color3.fromRGB(160, 200, 225) },
+	volcano = { Color3.fromRGB(90, 30, 30), Color3.fromRGB(40, 20, 20), Color3.fromRGB(45, 40, 42), Color3.fromRGB(255, 110, 30) },
+}
+
+local function grey(c)
+	local v = (c.R + c.G + c.B) / 3
+	return Color3.new(v, v, v):Lerp(Color3.fromRGB(170, 160, 145), 0.4)
+end
+
+-- Yuvarlak portre: CanvasGroup + UICorner ile daire içinde kırpılır
 local function drawIsland(parent, isl, locked)
-	local art = frame(parent, "Art", UDim2.fromScale(1, 1), UDim2.fromScale(0, 0), PARCH, 1)
+	local art = Instance.new("CanvasGroup")
+	art.Name = "Art"
+	art.Size = UDim2.fromScale(1, 1)
+	art.BackgroundColor3 = Color3.new(1, 1, 1)
+	art.BorderSizePixel = 0
+	art.ZIndex = 3
+	art.Parent = parent
+	corner(art)
+	local frameStroke = Instance.new("UIStroke")
+	frameStroke.Color = Color3.fromRGB(95, 62, 36)
+	frameStroke.Thickness = 4
+	frameStroke.Parent = art
+	if locked then
+		art.GroupColor3 = Color3.fromRGB(150, 145, 140)
+		art.GroupTransparency = 0.15
+	end
 	if isl.image ~= "" then
 		local img = Instance.new("ImageLabel")
-		img.Name = "Image"
 		img.Size = UDim2.fromScale(1, 1)
 		img.BackgroundTransparency = 1
 		img.Image = isl.image
-		img.ImageColor3 = locked and Color3.fromRGB(150, 150, 150) or Color3.new(1, 1, 1)
-		img.ImageTransparency = locked and 0.35 or 0
+		img.ScaleType = Enum.ScaleType.Crop
 		img.Parent = art
 		return art
 	end
+	local th = THEMES[isl.theme or "tropical"] or THEMES.tropical
 	local rng = Random.new(isl.seed * 31)
-	local sand = locked and GREY_SAND or SAND
-	local grass = locked and GREY_GRASS or GRASS
-	local alpha = locked and 0.35 or 0
-	-- kum lekeleri (dış hat mürekkep)
-	local blobs = {}
-	for i = 1, 3 do
-		local w = rng:NextNumber(0.45, 0.7)
-		local h = w * rng:NextNumber(0.6, 0.9)
-		local x = 0.5 + rng:NextNumber(-0.18, 0.18)
-		local y = 0.55 + rng:NextNumber(-0.12, 0.12)
-		local b = frame(art, "Sand", UDim2.fromScale(w, h), UDim2.fromScale(x, y), sand, alpha)
-		b.AnchorPoint = Vector2.new(0.5, 0.5)
-		corner(b)
-		local st = Instance.new("UIStroke")
-		st.Color = INK
-		st.Thickness = 2
-		st.Transparency = locked and 0.6 or 0.15
-		st.Parent = b
-		table.insert(blobs, { x = x, y = y, w = w, h = h })
+	local function f(name, size, pos, col, round)
+		local x = frame(art, name, size, pos, col, 0)
+		x.AnchorPoint = Vector2.new(0.5, 0.5)
+		if round then
+			corner(x)
+		end
+		return x
 	end
-	-- çimen (kumun içinde)
-	for _, b in blobs do
-		local g = frame(art, "Grass", UDim2.fromScale(b.w * 0.62, b.h * 0.6), UDim2.fromScale(b.x, b.y - b.h * 0.05), grass, alpha)
-		g.AnchorPoint = Vector2.new(0.5, 0.5)
-		corner(g)
+	local function glyph(text, size, pos, col)
+		local t = label(art, text, size, pos, col, Enum.Font.GothamBold)
+		t.AnchorPoint = Vector2.new(0.5, 0.5)
+		return t
 	end
-	-- dağ veya palmiye
-	if rng:NextNumber() < 0.5 then
-		local m = label(art, "▲", UDim2.fromScale(0.3, 0.3), UDim2.fromScale(0.33, 0.25), locked and GREY_GRASS or Color3.fromRGB(110, 86, 60), Enum.Font.GothamBold)
-		m.TextTransparency = alpha
+	-- gökyüzü ve su
+	local sky = f("Sky", UDim2.fromScale(1, 1), UDim2.fromScale(0.5, 0.5), Color3.new(1, 1, 1))
+	local g = Instance.new("UIGradient")
+	g.Color = ColorSequence.new({ ColorSequenceKeypoint.new(0, th[1]), ColorSequenceKeypoint.new(0.55, th[1]:Lerp(th[2], 0.5)), ColorSequenceKeypoint.new(1, th[2]) })
+	g.Rotation = 90
+	g.Parent = sky
+	local theme = isl.theme
+	if theme == "tropical" then
+		f("Sand", UDim2.fromScale(0.7, 0.24), UDim2.fromScale(0.5, 0.64), th[4], true)
+		f("Hill", UDim2.fromScale(0.55, 0.3), UDim2.fromScale(0.5, 0.55), th[3], true)
+		for k = -1, 1 do
+			local px = 0.5 + k * 0.17
+			f("Trunk", UDim2.fromScale(0.03, 0.2), UDim2.fromScale(px, 0.43), Color3.fromRGB(120, 80, 45)).Rotation = k * 10
+			for j = -1, 1 do
+				f("Leaf", UDim2.fromScale(0.15, 0.05), UDim2.fromScale(px + j * 0.06, 0.33 + math.abs(j) * 0.02), Color3.fromRGB(60, 140, 55), true).Rotation = j * 30
+			end
+		end
+	elseif theme == "coral" then
+		f("Ring", UDim2.fromScale(0.75, 0.32), UDim2.fromScale(0.5, 0.62), th[3], true)
+		f("Lagoon", UDim2.fromScale(0.45, 0.16), UDim2.fromScale(0.5, 0.63), Color3.fromRGB(90, 220, 220), true)
+		-- harabe
+		f("Base", UDim2.fromScale(0.24, 0.05), UDim2.fromScale(0.5, 0.5), Color3.fromRGB(150, 150, 140))
+		for k = -1, 1 do
+			f("Pillar", UDim2.fromScale(0.04, 0.16), UDim2.fromScale(0.5 + k * 0.08, 0.41), Color3.fromRGB(170, 170, 160))
+		end
+		f("Roof", UDim2.fromScale(0.28, 0.05), UDim2.fromScale(0.5, 0.32), Color3.fromRGB(150, 150, 140))
+		for _ = 1, 14 do
+			local cols = { th[4], Color3.fromRGB(160, 90, 220), Color3.fromRGB(255, 160, 90) }
+			f("Coral", UDim2.fromScale(0.07, 0.07), UDim2.fromScale(rng:NextNumber(0.15, 0.85), rng:NextNumber(0.72, 0.9)), cols[rng:NextInteger(1, 3)], true)
+		end
+	elseif theme == "swamp" then
+		f("Mud", UDim2.fromScale(1, 0.3), UDim2.fromScale(0.5, 0.86), th[4], false)
+		for k = -1, 1 do
+			local px = 0.5 + k * 0.25
+			f("Trunk", UDim2.fromScale(0.05, 0.45), UDim2.fromScale(px, 0.6), Color3.fromRGB(60, 45, 30)).Rotation = k * 6
+			f("Canopy", UDim2.fromScale(0.36, 0.2), UDim2.fromScale(px, 0.35), th[3], true)
+			f("Canopy2", UDim2.fromScale(0.26, 0.16), UDim2.fromScale(px + 0.06, 0.28), th[3]:Lerp(Color3.new(0, 0, 0), 0.2), true)
+			for j = 1, 2 do
+				f("Moss", UDim2.fromScale(0.015, 0.12), UDim2.fromScale(px - 0.08 + j * 0.06, 0.48), Color3.fromRGB(80, 110, 70))
+			end
+		end
+		local fog = f("Fog", UDim2.fromScale(1, 0.25), UDim2.fromScale(0.5, 0.72), Color3.fromRGB(200, 215, 200), false)
+		fog.BackgroundTransparency = 0.6
+	elseif theme == "ice" then
+		glyph("▲", UDim2.fromScale(0.75, 0.6), UDim2.fromScale(0.42, 0.42), th[3])
+		glyph("▲", UDim2.fromScale(0.55, 0.45), UDim2.fromScale(0.7, 0.5), Color3.fromRGB(220, 235, 250))
+		for k = 0, 4 do
+			f("Pine", UDim2.fromScale(0.05, 0.1), UDim2.fromScale(0.2 + k * 0.15, 0.66), Color3.fromRGB(50, 90, 80))
+		end
+		f("Sea", UDim2.fromScale(1, 0.3), UDim2.fromScale(0.5, 0.88), th[2], false)
+		for _ = 1, 6 do
+			f("Floe", UDim2.fromScale(rng:NextNumber(0.1, 0.2), 0.06), UDim2.fromScale(rng:NextNumber(0.15, 0.85), rng:NextNumber(0.78, 0.92)), Color3.fromRGB(240, 248, 255), true)
+		end
+	elseif theme == "volcano" then
+		glyph("▲", UDim2.fromScale(0.9, 0.7), UDim2.fromScale(0.5, 0.5), th[3])
+		f("Crater", UDim2.fromScale(0.14, 0.06), UDim2.fromScale(0.5, 0.26), th[4], true)
+		for k = 1, 3 do
+			f("Lava", UDim2.fromScale(0.03, 0.25), UDim2.fromScale(0.5 + (k - 2) * 0.09, 0.42), th[4]).Rotation = (k - 2) * 25
+		end
+		f("LavaSea", UDim2.fromScale(1, 0.22), UDim2.fromScale(0.5, 0.9), Color3.fromRGB(220, 70, 20), false)
+		for k = 1, 3 do
+			local s = f("Smoke", UDim2.fromScale(0.12 + k * 0.03, 0.1), UDim2.fromScale(0.5 + k * 0.05, 0.2 - k * 0.05), Color3.fromRGB(110, 90, 90), true)
+			s.BackgroundTransparency = 0.3
+		end
 	end
-	local px, py = 0.5 + rng:NextNumber(-0.15, 0.15), 0.42
-	local trunk = frame(art, "Trunk", UDim2.fromScale(0.04, 0.22), UDim2.fromScale(px, py), locked and GREY_SAND or Color3.fromRGB(120, 80, 45), alpha)
-	trunk.AnchorPoint = Vector2.new(0.5, 0)
-	trunk.Rotation = 8
-	for k = -1, 1 do
-		local leaf = frame(art, "Leaf", UDim2.fromScale(0.18, 0.06), UDim2.fromScale(px + k * 0.07, py + math.abs(k) * 0.03), locked and GREY_GRASS or Color3.fromRGB(70, 125, 55), alpha)
-		leaf.AnchorPoint = Vector2.new(0.5, 0.5)
-		leaf.Rotation = k * 30
-		corner(leaf)
+	if locked then
+		for _, d in art:GetDescendants() do
+			if d:IsA("Frame") then
+				d.BackgroundColor3 = grey(d.BackgroundColor3)
+			elseif d:IsA("TextLabel") then
+				d.TextColor3 = grey(d.TextColor3)
+			end
+		end
+		g.Color = ColorSequence.new(grey(th[1]), grey(th[2]))
 	end
 	return art
 end
@@ -265,12 +339,16 @@ local function buildRoutes(map)
 		local dist = math.sqrt(((b.x - a.x) * ASPECT) ^ 2 + (b.y - a.y) ^ 2)
 		local n = math.floor(dist / 0.022)
 		-- hafif kıvrım: ortaya doğru yana bük
-		local bend = (i % 2 == 0) and 0.04 or -0.04
-		for k = 2, n - 2 do
+		-- kıvrım: rotaya dik yönde hafif S eğrisi (yükseklik birimiyle)
+		local dx, dy = (b.x - a.x) * ASPECT, b.y - a.y
+		local px, py = -dy / dist, dx / dist
+		local bend = 0.06
+		for k = 4, n - 4 do
 			local t = k / n
-			local x = a.x + (b.x - a.x) * t + math.sin(t * math.pi) * bend
-			local y = a.y + (b.y - a.y) * t
-			local d = dot(folder, x, y, 0.009, unlockedLeg and INK or Color3.fromRGB(150, 130, 105), unlockedLeg and 0.05 or 0.35)
+			local off = math.sin(t * math.pi * 2) * bend
+			local x = a.x + (b.x - a.x) * t + px * off / ASPECT
+			local y = a.y + (b.y - a.y) * t + py * off
+			local d = dot(folder, x, y, 0.006, unlockedLeg and INK or Color3.fromRGB(150, 130, 105), unlockedLeg and 0.05 or 0.35)
 			d.ZIndex = 2
 			d.Parent = map
 			d.Name = "RouteDot"
@@ -321,7 +399,8 @@ local function styleMarker(isl)
 	local open = isUnlocked(isl)
 	local selected = selectedId == isl.id
 	m.lock.Visible = not open
-	m.pin.BackgroundColor3 = open and (selected and GOLD or RED) or Color3.fromRGB(130, 125, 118)
+	m.num.Visible = open
+	m.pin.BackgroundColor3 = open and (selected and GOLD or Color3.fromRGB(95, 62, 36)) or Color3.fromRGB(245, 238, 220)
 	m.ring.Color = selected and GOLD or INK
 	m.ring.Thickness = selected and 4 or 0
 	m.ring.Transparency = selected and 0 or 1
@@ -330,6 +409,7 @@ local function styleMarker(isl)
 	if m.drawnOpen ~= open then
 		m.art:Destroy()
 		m.art = drawIsland(m.button, isl, not open)
+		m.art.ZIndex = 3
 		m.drawnOpen = open
 	end
 end
@@ -359,20 +439,21 @@ local function buildMarkers(map)
 		b.AutoButtonColor = false
 		b.BackgroundTransparency = 1
 		b.AnchorPoint = Vector2.new(0.5, 0.5)
-		b.Size = UDim2.fromScale(0.17, 0.17 * ASPECT)
+		b.Size = UDim2.fromScale(0.13, 0.13 * ASPECT)
 		b.Position = UDim2.fromScale(isl.x, isl.y)
 		b.ZIndex = 3
 		b.Parent = map
 		local art = drawIsland(b, isl, not isUnlocked(isl))
 		-- seçim halkası
-		local ringHolder = frame(b, "RingHolder", UDim2.fromScale(1.08, 1.08), UDim2.fromScale(-0.04, -0.04), PARCH, 1)
+		local ringHolder = frame(b, "RingHolder", UDim2.fromScale(1.1, 1.1), UDim2.fromScale(-0.05, -0.05), PARCH, 1)
+		ringHolder.ZIndex = 4
 		corner(ringHolder)
 		local ring = Instance.new("UIStroke")
 		ring.Thickness = 0
 		ring.Transparency = 1
 		ring.Parent = ringHolder
 		-- konum iğnesi
-		local pin = dot(b, 0.5, 0.58, 0.16, RED, 0, 1)
+		local pin = dot(b, 0.86, 0.12, 0.26, Color3.fromRGB(95, 62, 36), 0, 1)
 		pin.ZIndex = 5
 		local ps = Instance.new("UIStroke")
 		ps.Color = Color3.fromRGB(255, 245, 220)
@@ -382,14 +463,14 @@ local function buildMarkers(map)
 		local num = label(pin, tostring(i), UDim2.fromScale(1, 1), UDim2.fromScale(0, 0), Color3.new(1, 1, 1), Enum.Font.GothamBold)
 		num.ZIndex = 6
 		-- kilit
-		local lock = label(b, "🔒", UDim2.fromScale(0.36, 0.36), UDim2.fromScale(0.62, 0.02), INK, Enum.Font.GothamBold)
+		local lock = label(pin, "🔒", UDim2.fromScale(0.75, 0.75), UDim2.fromScale(0.125, 0.125), INK, Enum.Font.GothamBold)
 		lock.ZIndex = 6
 		-- ad
-		local name = label(b, isl.name, UDim2.fromScale(1.5, 0.22), UDim2.fromScale(-0.25, 0.92), INK, Enum.Font.Fantasy, 20)
+		local name = label(b, isl.name, UDim2.fromScale(1.7, 0.2), UDim2.fromScale(-0.35, 1.06), INK, Enum.Font.Fantasy, 20)
 		name.ZIndex = 6
 		name.TextStrokeColor3 = PARCH
 		name.TextStrokeTransparency = 0.3
-		markers[isl.id] = { button = b, ring = ring, pin = pin, lock = lock, name = name, art = art, drawnOpen = isUnlocked(isl) }
+		markers[isl.id] = { button = b, ring = ring, pin = pin, num = num, lock = lock, name = name, art = art, drawnOpen = isUnlocked(isl) }
 
 		b.Activated:Connect(function()
 			if isUnlocked(isl) then
@@ -465,6 +546,7 @@ end
 local function build()
 	gui = Instance.new("ScreenGui")
 	gui.Name = "SeaMapGui"
+	gui.ZIndexBehavior = Enum.ZIndexBehavior.Sibling
 	gui.ResetOnSpawn = false
 	gui.IgnoreGuiInset = true
 	gui.DisplayOrder = 12
@@ -479,7 +561,7 @@ local function build()
 		end
 	end)
 
-	mapFrame = frame(gui, "Map", UDim2.fromScale(0.92, 0.78), UDim2.fromScale(0.5, 0.45), PARCH, 0)
+	mapFrame = frame(gui, "Map", UDim2.fromScale(0.86, 0.72), UDim2.fromScale(0.5, 0.44), PARCH, 0)
 	mapFrame.AnchorPoint = Vector2.new(0.5, 0.5)
 	mapFrame.ClipsDescendants = false
 	local ar = Instance.new("UIAspectRatioConstraint")
@@ -500,7 +582,7 @@ local function build()
 	x.Name = "Close"
 	x.AnchorPoint = Vector2.new(0.5, 0.5)
 	x.Position = UDim2.new(1, 6, 0, -6)
-	x.Size = UDim2.fromScale(0.1, 0.1 * ASPECT)
+	x.Size = UDim2.fromScale(0.06, 0.06 * ASPECT)
 	x.BackgroundColor3 = RED
 	x.Text = "X"
 	x.TextScaled = true
@@ -537,7 +619,7 @@ local function build()
 
 	-- seçili ada paneli (altta)
 	-- haritanın hemen altında
-	infoPanel = frame(mapFrame, "Info", UDim2.fromScale(0.9, 0.11), UDim2.new(0.5, 0, 1, 10), Color3.fromRGB(250, 236, 205), 0.05)
+	infoPanel = frame(mapFrame, "Info", UDim2.fromScale(0.5, 0.15), UDim2.new(0.5, 0, 1, 8), Color3.fromRGB(250, 236, 205), 0.05)
 	infoPanel.AnchorPoint = Vector2.new(0.5, 0)
 	infoPanel.ZIndex = 10
 	corner(infoPanel, UDim.new(0.2, 0))
