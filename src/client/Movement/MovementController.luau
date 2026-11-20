@@ -40,7 +40,7 @@ local function applySpeed()
 		return
 	end
 	-- top nişanındayken hız ve FOV'u CannonController yönetir
-	if Players.LocalPlayer:GetAttribute("CannonAiming") then
+	if Players.LocalPlayer:GetAttribute("CannonAiming") or Players.LocalPlayer:GetAttribute("InCutscene") then
 		return
 	end
 	local sw = isSwimming(hum)

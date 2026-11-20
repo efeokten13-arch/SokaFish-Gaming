@@ -29,10 +29,14 @@ local EVENTS = {
 	-- Arayüz
 	"OpenCollection", -- server -> client: koleksiyon kitabını aç (kulübedeki kitaba basınca)
 	"Notify", -- server -> client: kısa bildirim (metin, renk)
+
+	-- Giriş öğreticisi (yaşlı balıkçı ile sinematik sohbet)
+	"IntroStart", -- server -> client: öğreticiyi başlat
 }
 
 local FUNCTIONS = {
 	"GetPlayerData", -- client -> server: güncel veriyi iste
+	"IntroAction", -- client -> server: "claim" (ada al, ada numarası döner) | "done" (öğretici bitti)
 }
 
 local folder: Folder

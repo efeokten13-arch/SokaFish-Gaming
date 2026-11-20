@@ -14,5 +14,6 @@ require(Client.Combat.CannonController).Init()
 require(Client.UI.RodShopPrompts).Init()
 require(Client.Effects.SoundController).Init()
 require(Client.Effects.StormClouds).Init()
+require(Client.Tutorial.IntroController).Init()
 
 print("[Client] Hazır")

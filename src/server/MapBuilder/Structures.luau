@@ -69,12 +69,6 @@ function Structures.Plaza(cfg)
 	top.Transparency = 0.25
 	Util.ball(f, "Finial", Vector3.new(1.4, 2, 1.4), fc * CFrame.new(0, 8.8, 0), Color3.fromRGB(205, 175, 100), Enum.Material.Metal)
 	Util.light(top, 0.5, 18, Color3.fromRGB(200, 230, 255))
-	-- heykeller
-	for k = 0, 3 do
-		local a = math.rad(45 + k * 90)
-		local pos = Vector3.new(P.x + math.cos(a) * 35, g, P.z + math.sin(a) * 35)
-		Decor.fishStatue(f, pos, -a + math.pi / 2)
-	end
 	-- fenerler
 	for k = 0, 7 do
 		local a = math.rad(k * 45 + 22.5)
@@ -150,7 +144,7 @@ function Structures.Fisherman(cfg)
 		end
 	end
 	-- isim levhası ve konuşma balonu
-	local tag = Util.billboard(head, "Old Fisherman", 3.2, 170)
+	local tag = Util.billboard(head, "Old Finn", 3.2, 170)
 	tag.Name = "NameTag"
 	local speech = Instance.new("BillboardGui")
 	speech.Name = "Speech"
@@ -178,7 +172,7 @@ function Structures.Fisherman(cfg)
 	bg.Parent = speech
 	local prompt = Instance.new("ProximityPrompt")
 	prompt.ActionText = "Talk"
-	prompt.ObjectText = "Old Fisherman"
+	prompt.ObjectText = "Old Finn"
 	prompt.HoldDuration = 0
 	prompt.MaxActivationDistance = 14
 	prompt.RequiresLineOfSight = false

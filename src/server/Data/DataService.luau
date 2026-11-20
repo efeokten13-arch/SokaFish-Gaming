@@ -39,6 +39,7 @@ export type PlayerData = {
 	ownedRods: { string },
 	caught: { [string]: number }, -- koleksiyon kitabı: tür -> tutulan sayı
 	tutorial: number, -- 0 = başlamadı, 1 = ada alındı, 2 = tekne alındı
+	introDone: boolean?, -- yaşlı balıkçının giriş öğreticisi bitti mi (bitene kadar ada/harita butonları kapalı)
 	starterGrant: boolean?, -- eski kayıtlara bir kez başlangıç parası vermek için
 	lastOnline: number,
 }
@@ -83,6 +84,7 @@ function DataService.Payload(player: Player): any
 		boat = data.boat,
 		ownedBoats = table.clone(data.ownedBoats),
 		caught = table.clone(data.caught),
+		introDone = data.introDone == true,
 		ownedRods = table.clone(data.ownedRods),
 		rod = data.rod,
 		bait = data.bait,
@@ -127,6 +129,10 @@ local function load(player: Player)
 	if not data.starterGrant then
 		data.money = math.max(data.money, Economy.StartingMoney)
 		data.starterGrant = true
+	end
+	-- öğretici eklenmeden önce ada almış oyuncular öğreticiyi tekrar görmesin
+	if data.introDone == nil then
+		data.introDone = (data.tutorial or 0) >= 1
 	end
 	-- olta listesi değişti: eski kayıttaki olmayan oltalar başlangıç oltasına döner
 	if type(data.ownedRods) ~= "table" then

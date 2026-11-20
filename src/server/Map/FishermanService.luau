@@ -81,6 +81,10 @@ end
 
 local function onTalk(player: Player)
 	local data = DataService.Get(player)
+	if data and not (data :: any).introDone then
+		Remotes.Event("IntroStart"):FireClient(player)
+		return
+	end
 	local island = MapService.GetIsland(player)
 	if island then
 		local hasBoat = data and #(data :: any).ownedBoats > 0
@@ -108,26 +112,62 @@ local function onTalk(player: Player)
 	task.spawn(tutorial, player, island)
 end
 
--- Oyuna ilk girişte (adası yoksa) ok balıkçıyı gösterir
-local function guideToFisherman(player: Player)
+-- Oyuna girişte: öğreticiyi görmemişse sinematik sohbet başlar; görmüşse adası verilir
+local function onJoin(player: Player)
 	local data = DataService.Wait(player)
-	if data and ((data :: any).tutorial or 0) >= 1 then
-		-- daha önce ada almış oyuncu: tekrar konuşmasına gerek yok
-		local island = MapService.AssignIsland(player)
-		if island then
-			notify(player, "Welcome back! Island " .. islandNumber(island) .. " is yours", Color3.fromRGB(120, 230, 150))
+	if not data then
+		return
+	end
+	if not (data :: any).introDone then
+		task.wait(1.2)
+		if player.Parent then
+			Remotes.Event("IntroStart"):FireClient(player)
 		end
 		return
 	end
-	local target = npc and npc:FindFirstChild("Torso")
-	if target and not MapService.GetIsland(player) then
-		task.wait(1.5)
-		Remotes.Event("GuideTarget"):FireClient(player, target, "Old Fisherman")
-		notify(player, "Talk to the Old Fisherman to claim your island")
+	local island = MapService.AssignIsland(player)
+	if island then
+		notify(player, "Welcome back! Island " .. islandNumber(island) .. " is yours", Color3.fromRGB(120, 230, 150))
 	end
 end
 
+-- Öğreticiden gelen istekler
+local function onIntroAction(player: Player, action: any): any
+	local data = DataService.Get(player) :: any
+	if not data then
+		return nil
+	end
+	if action == "claim" then
+		local island = MapService.GetIsland(player) or MapService.AssignIsland(player)
+		if not island then
+			return nil
+		end
+		if (data.tutorial or 0) < 1 then
+			data.tutorial = 1
+		end
+		return islandNumber(island)
+	elseif action == "done" then
+		if data.introDone then
+			return true
+		end
+		data.introDone = true
+		DataService.Push(player)
+		-- sonraki adım: tekne yoksa iskeleye, varsa adaya ok
+		local island = MapService.GetIsland(player) or MapService.AssignIsland(player)
+		local shop = boatShopTarget()
+		if #data.ownedBoats == 0 and shop then
+			Remotes.Event("GuideTarget"):FireClient(player, shop, "Boat shop")
+			notify(player, "Buy your first boat at the Boat Shop!", Color3.fromRGB(255, 244, 214))
+		elseif island and island:FindFirstChild("Spawn") then
+			Remotes.Event("GuideTarget"):FireClient(player, island:FindFirstChild("Spawn"), "Your island")
+		end
+		return true
+	end
+	return nil
+end
+
 function FishermanService.Init()
+	Remotes.Function("IntroAction").OnServerInvoke = onIntroAction
 	task.spawn(function()
 		local found = Workspace:WaitForChild("OldFisherman", 60) :: Model?
 		if not found then
@@ -140,20 +180,12 @@ function FishermanService.Init()
 			prompt.Triggered:Connect(onTalk)
 		end
 		for _, p in Players:GetPlayers() do
-			task.spawn(guideToFisherman, p)
+			task.spawn(onJoin, p)
 		end
 	end)
 	Players.PlayerAdded:Connect(function(p)
 		p.CharacterAdded:Once(function()
-			if npc then
-				guideToFisherman(p)
-			else
-				task.spawn(function()
-					Workspace:WaitForChild("OldFisherman", 60)
-					task.wait(1)
-					guideToFisherman(p)
-				end)
-			end
+			onJoin(p)
 		end)
 	end)
 end

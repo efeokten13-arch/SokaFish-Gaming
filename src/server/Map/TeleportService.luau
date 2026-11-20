@@ -8,6 +8,7 @@ local Players = game:GetService("Players")
 local Shared = ReplicatedStorage:WaitForChild("Shared")
 local Remotes = require(Shared:WaitForChild("Remotes"))
 local Movement = require(Shared:WaitForChild("Config"):WaitForChild("Movement"))
+local DataService = require(script.Parent.Parent.Data.DataService)
 local MapService = require(script.Parent.MapService)
 local BoatService = require(script.Parent.Parent.Boat.BoatService)
 
@@ -30,7 +31,7 @@ local function destination(player: Player, kind: string): CFrame?
 		local npc = Workspace:FindFirstChild("OldFisherman")
 		local torso = npc and npc:FindFirstChild("Torso")
 		if torso then
-			Remotes.Event("GuideTarget"):FireClient(player, torso, "Old Fisherman")
+			Remotes.Event("GuideTarget"):FireClient(player, torso, "Old Finn")
 		end
 		return nil
 	elseif kind == "Main" then
@@ -44,6 +45,11 @@ end
 
 local function teleport(player: Player, kind: any)
 	if typeof(kind) ~= "string" then
+		return
+	end
+	-- öğretici bitmeden ışınlanma yok
+	local d = DataService.Get(player) :: any
+	if d and not d.introDone then
 		return
 	end
 	local now = os.clock()

@@ -19,5 +19,7 @@ return {
 
 	Splash = "rbxassetid://9125703162", -- balık vurunca / tutunca su sesi
 	CatchJingle = "rbxassetid://1848281810", -- balık tutunca kısa müzik
+	HoHo = "rbxassetid://140460517641927", -- yaşlı balıkçının "Ho ho!" kahkahası (öğretici)
+	Click = "rbxassetid://9125703162", -- öğreticide cevap butonu (küçük su sesi)
 	StormCatch = "rbxassetid://130457325001606", -- fırtınada tutunca gök gürültüsü
 }

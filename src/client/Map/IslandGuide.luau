@@ -100,7 +100,7 @@ function IslandGuide.Init()
 		end
 		target = part
 		label = text or ""
-		makeBeacon(part, text == "Old Fisherman" and Color3.fromRGB(255, 214, 80) or Color3.fromRGB(80, 230, 150))
+		makeBeacon(part, (text == "Old Fisherman" or text == "Old Finn") and Color3.fromRGB(255, 214, 80) or Color3.fromRGB(80, 230, 150))
 		arrowFrame.Visible = true
 	end)
 
