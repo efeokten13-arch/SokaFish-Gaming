@@ -1,42 +1,63 @@
 --!strict
--- 2. ada: Mermaid Island (eski adı Ancient Coral Atoll; id hâlâ "Coral"). Ana denizden uzakta, ayrı ve ilk harita kadar büyük bir deniz.
+-- 2. ada: Mermaid Island (eski adı Ancient Coral Atoll; id hâlâ "Coral"). Ana denizden uzakta, ayrı bir deniz.
 -- Kişisel ada yok: herkesin balık tuttuğu ve hazine aradığı ortak bölge. Balıklar ocean = "Coral".
--- Koordinatlar atol merkezine göre (X doğu, Z güney). MapBuilder.Atoll() kurar.
+-- Yerleşim Ege'nin eskizinden alındı (2272x1524 piksellik harita). Bu dosyadaki tüm {x, y} değerleri ESKİZİN PİKSELİDİR;
+-- builder bunları stud'a çevirir: x = (px - Center[1]) * Scale, z = (py - Center[2]) * Scale (X doğu, Z güney).
+-- Bir adayı kaydırmak için sadece pikselini değiştir, sonra MapBuilder.Atoll("props") / ("terrain") çalıştır.
 return {
 	Origin = Vector3.new(6000, 0, 0),
-	SeaSize = 3600, -- ilk harita ile aynı
+	Scale = 1.585, -- 1 piksel = 1.585 stud (deniz yaklaşık 3415 x 2211 stud)
+	Center = { 1136, 762 },
 	SeabedY = -40,
-	-- Ana atol halkası: kalp şekli, ortada lagün, güneyde giriş
-	Ring = { radius = 520, lobe = 70, gaps = { { 62, 118 }, { 148, 168 } } },
-	-- Tepeler (halka üzerindeki açı, yükseklik)
-	Hills = { { -90, 34 }, { -135, 24 }, { -40, 28 }, { 15, 18 }, { 45, 22 }, { 200, 26 }, { 240, 20 }, { 130, 14 } },
-	Dock = { x = 0, z = 860 }, -- varış iskelesi (güney açıklığın önünde)
-	Islets = {
-		{ name = "Sunken Temple", x = -980, z = -760, r = 95, kind = "temple" },
-		{ name = "Giant's Reef", x = 1000, z = -820, r = 90, kind = "tower" },
-		{ name = "Siren's Cove", x = 1040, z = 600, r = 100, kind = "cove" },
+	-- Eski araziyi silinecek alan (stud, atol merkezine göre)
+	Clear = { x0 = -2500, x1 = 2100, z0 = -1900, z1 = 1500 },
+	-- Deniz dikdörtgeni (piksel). Dışı dağ/kara.
+	Sea = { x0 = 50, y0 = 35, x1 = 2205, y1 = 1430 },
+
+	-- Sol üstteki kale şeridi (eskizdeki çapraz kara): a -> b doğrusu boyunca uzanır, ortasında dev kale kapısı var.
+	-- halfWidth: şeridin yarı genişliği (piksel). gateGap: kapının iki yanında kara başlamadan önceki boşluk (stud).
+	-- Kapının arkasındaki (kuzeybatı) deniz kanalla haritanın dışına devam eder (ileride 3. ada).
+	Band = { a = { 50, 395 }, b = { 425, 35 }, halfWidth = 55, gateGap = 150 },
+	Channel = { length = 520, width = 260 },
+
+	-- Karşılama adası: mermaid kayası ve başlangıç iskelesi burada
+	Welcome = { x = 375, y = 730, r = 58 },
+	-- Random Treasure Island (sandık)
+	TreasureIsland = { x = 395, y = 1190, r = 48 },
+	-- Star Island (sandık)
+	Star = { x = 1765, y = 255, r = 75 },
+	-- Ana tapınak adası: noktalar {x, y, yarıçap(px)}; tapınak ve iskele konumları
+	MainTemple = {
+		points = { { 1280, 620, 62 }, { 1285, 700, 70 }, { 1268, 785, 52 } },
+		temple = { 1288, 650 },
+		dock = { from = { 1198, 765 }, to = { 1108, 765 } },
 	},
-	-- 4 köşe adası (hazine sandıkları)
-	Corners = {
-		{ name = "Skull Key", x = -1330, z = -1330 },
-		{ name = "Gull Rock", x = 1330, z = -1330 },
-		{ name = "Pearl Isle", x = 1330, z = 1330 },
-		{ name = "Smuggler's Den", x = -1330, z = 1330 },
+	-- Tapınağın çevresindeki 4 hilal ada (her biri bir çizgi) ve ortadaki minik ada
+	CrescentR = 34,
+	Crescents = {
+		{ { 715, 575 }, { 760, 500 }, { 830, 445 }, { 900, 418 }, { 950, 410 } },
+		{ { 1105, 415 }, { 1170, 405 }, { 1250, 430 }, { 1320, 480 } },
+		{ { 725, 775 }, { 745, 860 }, { 800, 935 }, { 880, 985 }, { 945, 985 } },
+		{ { 1080, 1000 }, { 1150, 1005 }, { 1230, 970 }, { 1285, 900 } },
 	},
-	-- Mermaid Island: kuzeydeki iki büyük dağ ve aralarındaki kilitli geçit (anahtarla açılır, 3. adaya gider).
-	-- Dağ sırası z = z hattında, x = ±peakX'ten ±endX'e (duvara kadar) uzanır; ortada geçit kalır.
-	Pass = { z = -1470, peakX = 380, peakH = 330, endX = 1560, endH = 100, step = 130, gate = 118 },
-	-- Varış: oyuncu mermaid taşının karşısında doğar (taşa bakar); gemisi sol iskeleye bağlıdır.
-	-- spawn/boat/rock/jetty koordinatları atol merkezine göre (varış iskelesi Dock ile aynı bölgede).
-	Arrival = {
-		rock = { x = 30, z = 822 },
-		spawn = { x = 14, z = 866 },
-		boat = { x = -44, z = 841 },
-		jetty = { x0 = -22, x1 = -72, z = 851 },
+	Islets = { { 945, 760, 34 }, { 1510, 1000, 24 } },
+	-- Small Ancient Temple (sağ alt): ada zinciri
+	SmallTemple = {
+		points = { { 1700, 1150, 58 }, { 1790, 1130, 62 }, { 1890, 1125, 64 }, { 1985, 1135, 56 }, { 2030, 1180, 50 } },
+		temple = { 1800, 1120 },
 	},
-	Labyrinth = { x0 = -1420, x1 = -860, z0 = -420, z1 = 820 },
-	Wall = 1560, -- görünmez sınır (dağların önünde)
-	Spots = {}, -- işaretli nokta yok: açık denizin her yerinde balık tutulur
+	-- Labirent (sağ orta): kaya + mercan duvarlı 5x5 hücre, ortasında sandık
+	Labyrinth = { x0 = 1690, y0 = 480, x1 = 1990, y1 = 800, cells = 5 },
+	-- Büyük batık gemi (sığlıkta yatar, sandık içinde)
+	BigShip = { x = 655, y = 1095, r = 30 },
+	-- Yarı batık ölü deniz canavarı (süs): kum şeridi ve iskeletin yeri
+	Monster = {
+		points = { { 1075, 1215, 28 }, { 1040, 1285, 28 }, { 990, 1345, 28 }, { 935, 1400, 28 } },
+		skeleton = { 1035, 1290 },
+	},
+	-- Üstteki batık gemiler (ahşap + metal toplanır)
+	SunkenShips = { { 880, 140 }, { 1050, 100 }, { 1190, 130 } },
+
 	-- Atoldeki su rengi (sadece oyuncu atoldeyken; ana adanın suyu değişmez)
 	Water = {
 		color = Color3.fromRGB(30, 158, 170),
@@ -45,5 +66,5 @@ return {
 		waveSize = 0.15,
 		waveSpeed = 8,
 	},
-	RegionMinX = 4000, -- bu X'in ötesi atol sayılır
+	RegionMinX = 3000, -- bu X'in ötesi atol sayılır (kanal da dahil)
 }
