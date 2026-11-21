@@ -536,6 +536,8 @@ end
 
 -- Input --------------------------------------------------------------------
 
+local tap: () -> () -- aşağıda tanımlanıyor (önceden bildirildi)
+
 local function press()
 	holding = true
 	if phase == "idle" then
@@ -662,7 +664,7 @@ local function startReelSound()
 end
 
 -- Her tıklama göstergeyi yukarı iter
-local function tap()
+tap = function()
 	vel += TAP_IMPULSE
 	player:SetAttribute("ReelTaps", (player:GetAttribute("ReelTaps") or 0) + 1) -- test sayacı
 	-- küçük zıplama

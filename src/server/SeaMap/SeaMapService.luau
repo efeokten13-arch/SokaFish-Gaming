@@ -55,7 +55,7 @@ local function travel(player: Player, id: any)
 		return
 	end
 	if SeaMap.BoatLevel((data :: any).ownedBoats) < isl.level then
-		DataService.Notify(player, string.format(SeaMap.LockedMessage, isl.level), RED)
+		DataService.Notify(player, (isl :: any).lockedMessage or string.format(SeaMap.LockedMessage, isl.level), RED)
 		return
 	end
 	local now = os.clock()

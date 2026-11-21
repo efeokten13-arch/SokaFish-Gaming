@@ -24,6 +24,7 @@ export type SeaIsland = {
 	image: string,
 	description: string,
 	travel: string?,
+	lockedMessage: string?, -- kilitliyken gösterilecek özel yazı (yoksa LockedMessage)
 	seed: number,
 	theme: string?,
 }
@@ -49,8 +50,9 @@ SeaMap.ParchmentImage = ""
 SeaMap.Islands = {
 	{ id = "Warm", name = "Warm Waters", x = 0.16, y = 0.34, level = 0, image = "", theme = "tropical", seed = 1, travel = "Main",
 		description = "The peaceful starting seas. Rich with common fish, gentle waves, and busy docks." },
-	{ id = "Coral", name = "Ancient Coral Atoll", x = 0.35, y = 0.66, level = 1, image = "", theme = "coral", seed = 2, travel = "Dest",
-		description = "Bright reefs around forgotten ruins. Colorful and rare fish." },
+	{ id = "Coral", name = "Mermaid Island", x = 0.35, y = 0.66, level = 4, image = "", theme = "coral", seed = 2, travel = "Dest",
+		lockedMessage = "Buy the Warship to unlock Mermaid Island!",
+		description = "Temples, wrecks and coral. The mermaid guards a sealed mountain pass." },
 	{ id = "Swamp", name = "Shrouded Swamp", x = 0.53, y = 0.34, level = 2, image = "", theme = "swamp", seed = 3,
 		description = "Murky water under twisted trees. Strange fish hide in the fog." },
 	{ id = "Frost", name = "Frostbite Fjord", x = 0.71, y = 0.66, level = 3, image = "", theme = "ice", seed = 4,

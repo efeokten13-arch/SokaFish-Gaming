@@ -272,7 +272,8 @@ local SETTINGS = {
 	Rowboat = { accel = 15, strokeRate = 2.4, oars = true },
 	Kayak = { accel = 22 },
 	Sloop = { accel = 26, noPaddle = true },
-	Warship = { accel = 30, noPaddle = true, cannons = true },
+	-- GEÇİCİ (DEV): accel 30 -> 90 (hız 3x ile uyumlu); sonra 30 yap.
+	Warship = { accel = 90, noPaddle = true, cannons = true },
 }
 
 function BoatModels.Build(id: string, cf: CFrame, display: boolean?)

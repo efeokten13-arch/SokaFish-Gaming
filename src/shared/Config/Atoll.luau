@@ -1,5 +1,5 @@
 --!strict
--- 2. ada: Ancient Coral Atoll. Ana denizden uzakta, ayrı ve ilk harita kadar büyük bir deniz.
+-- 2. ada: Mermaid Island (eski adı Ancient Coral Atoll; id hâlâ "Coral"). Ana denizden uzakta, ayrı ve ilk harita kadar büyük bir deniz.
 -- Kişisel ada yok: herkesin balık tuttuğu ve hazine aradığı ortak bölge. Balıklar ocean = "Coral".
 -- Koordinatlar atol merkezine göre (X doğu, Z güney). MapBuilder.Atoll() kurar.
 return {
@@ -22,6 +22,17 @@ return {
 		{ name = "Gull Rock", x = 1330, z = -1330 },
 		{ name = "Pearl Isle", x = 1330, z = 1330 },
 		{ name = "Smuggler's Den", x = -1330, z = 1330 },
+	},
+	-- Mermaid Island: kuzeydeki iki büyük dağ ve aralarındaki kilitli geçit (anahtarla açılır, 3. adaya gider).
+	-- Dağ sırası z = z hattında, x = ±peakX'ten ±endX'e (duvara kadar) uzanır; ortada geçit kalır.
+	Pass = { z = -1470, peakX = 380, peakH = 330, endX = 1560, endH = 100, step = 130, gate = 118 },
+	-- Varış: oyuncu mermaid taşının karşısında doğar (taşa bakar); gemisi sol iskeleye bağlıdır.
+	-- spawn/boat/rock/jetty koordinatları atol merkezine göre (varış iskelesi Dock ile aynı bölgede).
+	Arrival = {
+		rock = { x = 30, z = 822 },
+		spawn = { x = 14, z = 866 },
+		boat = { x = -44, z = 841 },
+		jetty = { x0 = -22, x1 = -72, z = 851 },
 	},
 	Labyrinth = { x0 = -1420, x1 = -860, z0 = -420, z1 = 820 },
 	Wall = 1560, -- görünmez sınır (dağların önünde)

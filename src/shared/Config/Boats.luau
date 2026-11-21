@@ -9,7 +9,8 @@ local Boats = {
 	Rowboat = { displayName = "Rowboat", price = 1, slots = 3, speed = 215, oceans = { "Warm" }, order = 1 },
 	Kayak = { displayName = "Yellow Canoe", price = 100, slots = 5, speed = 312, oceans = { "Warm" }, order = 2 },
 	Sloop = { displayName = "Sloop", price = 2500, slots = 7, speed = 371, oceans = { "Warm", "Deep" }, order = 3 },
-	Warship = { displayName = "Warship", price = 50000, slots = 9, speed = 429, oceans = { "Warm", "Deep", "Mystery" }, order = 4 },
+	-- GEÇİCİ (DEV): Warship hızı 3x (429 -> 1287). Island 2 gezmek için; sonra 429 yap.
+	Warship = { displayName = "Warship", price = 50000, slots = 9, speed = 1287, oceans = { "Warm", "Deep", "Mystery" }, order = 4 },
 }
 
 Boats.ProtectedSlots = 1

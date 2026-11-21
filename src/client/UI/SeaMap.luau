@@ -476,7 +476,7 @@ local function buildMarkers(map)
 			if isUnlocked(isl) then
 				select(isl.id)
 			else
-				showTooltip(isl, string.format(SeaMap.LockedMessage, isl.level))
+				showTooltip(isl, isl.lockedMessage or string.format(SeaMap.LockedMessage, isl.level))
 			end
 		end)
 	end

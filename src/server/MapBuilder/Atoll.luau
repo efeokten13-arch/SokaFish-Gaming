@@ -455,6 +455,7 @@ local function mermaid(parent, x, z)
 	Util.ball(m, "Head", Vector3.new(2.4, 2.7, 2.4), cf * CFrame.new(-1, 17.4, 0), st, Enum.Material.Marble)
 	Util.ball(m, "Hair", Vector3.new(3, 5.4, 2.2), cf * CFrame.new(-0.4, 16, 0.8), st:Lerp(Color3.new(0, 0, 0), 0.15), Enum.Material.Marble)
 	m.Parent = parent
+	return m
 end
 
 local function smallDock(parent, x, z, dirX, dirZ)
@@ -578,7 +579,7 @@ function Atoll.Structures(c)
 	end
 	label(f, -1140, 200, "Coral Labyrinth", 30)
 	label(f, 700, -600, "Whispering Shallows", 28)
-	label(f, 0, 0, "Ancient Coral Atoll", 90)
+	label(f, 0, 0, "Mermaid Island", 90)
 	task.wait()
 
 	-- Mercanlar ve deniz otları (su altında, tekneyi engellemez)
@@ -642,7 +643,7 @@ function Atoll.Structures(c)
 		end
 	end
 	local sign = Util.part(dock, "Sign", Vector3.new(18, 4.4, 0.5), CFrame.new(O.X + D.x, deckY + 7, O.Z + D.z - 12.5), Color3.fromRGB(40, 90, 120), Enum.Material.WoodPlanks)
-	Util.sign(sign, Enum.NormalId.Back, "ANCIENT CORAL ATOLL", CREAM)
+	Util.sign(sign, Enum.NormalId.Back, "MERMAID ISLAND", CREAM)
 	Util.sign(sign, Enum.NormalId.Front, "Find the treasure! Open the Map to sail home", CREAM)
 	for _, x in { -8, 8 } do
 		Util.pole(dock, "SignPost", O.X + D.x + x, O.Z + D.z - 12.5, deckY, deckY + 6, 0.6, DARK, Enum.Material.Wood)
@@ -696,7 +697,104 @@ function Atoll.Spots(c)
 	folder.Parent = root
 end
 
+-- Mermaid Island ------------------------------------------------------------------
+
+-- Kuzeyde iki büyük dağ + aralarında geçit (dağ sırası duvarlara kadar uzanır, tekneyle etrafından geçilmez)
+function Atoll.Pass(c)
+	local P = c.Pass
+	local rng = Random.new(520)
+	local function mountain(x, z, h)
+		local base = h * 0.75
+		local y = -30
+		while y < h do
+			local t = math.max(y, 0) / h
+			local r = base * (1 - t) ^ 1.2 + 6
+			local mat = t > 0.72 and ROCK or (rng:NextNumber() < 0.25 and GRASS or LEAFY)
+			ball(x + rng:NextNumber(-4, 4), y, z + rng:NextNumber(-4, 4), r, mat)
+			y += math.max(r * 0.33, 8)
+		end
+	end
+	for _, side in { -1, 1 } do
+		local x = P.peakX
+		while x < P.endX do
+			local t = (x - P.peakX) / (P.endX - P.peakX)
+			local h = P.peakH + (P.endH - P.peakH) * t + rng:NextNumber(-20, 20)
+			mountain(side * x, P.z + rng:NextNumber(-14, 14), h)
+			x += P.step
+			task.wait()
+		end
+		mountain(side * P.endX, P.z, P.endH)
+		task.wait()
+	end
+end
+
+-- Varış (mermaid taşı, sol iskele, tekne yeri, ışınlanma noktaları) ve kilitli geçit kapısı
+function Atoll.Mermaid(c)
+	local P, A = c.Pass, c.Arrival
+	local f = Util.fresh("Folder", "AtollMermaid")
+	local deckY = 6.5
+
+	-- mermaid taşı: Ege kendi modelini yapana kadar heykel yer tutucu
+	local rk = A.rock
+	ball(rk.x + 9, 0, rk.z - 5, 7, ROCK)
+	ball(rk.x - 9, -1, rk.z + 6, 6, ROCK)
+	local npc = mermaid(f, rk.x, rk.z)
+	npc:SetAttribute("Role", "Mermaid")
+
+	-- sol iskele: gemi buraya bağlı durur
+	local J = A.jetty
+	Util.beam(f, "Jetty", W(J.x0, J.z, deckY - 0.5), W(J.x1, J.z, deckY - 0.5), 6, 1, WOOD, Enum.Material.WoodPlanks)
+	for x = J.x0 - 8, J.x1, -9 do
+		for _, dz in { -2.6, 2.6 } do
+			Util.pole(f, "Piling", O.X + x, O.Z + J.z + dz, -10, deckY + 1.4, 0.9, DARK, Enum.Material.Wood)
+		end
+	end
+	Decor.lamp(f, Vector3.new(O.X + J.x1 + 2, deckY, O.Z + J.z + 2.6))
+
+	-- ışınlanma: oyuncu mermaid'e bakarak doğar, tekne sol iskelede (burnu batıya)
+	local dest = Workspace:FindFirstChild("SeaMapDestinations") or Instance.new("Folder")
+	dest.Name = "SeaMapDestinations"
+	dest.Parent = Workspace
+	for _, n in { "Coral", "Coral_Boat" } do
+		local old = dest:FindFirstChild(n)
+		if old then
+			old:Destroy()
+		end
+	end
+	local sp = Vector3.new(O.X + A.spawn.x, deckY + 0.5, O.Z + A.spawn.z)
+	Util.zone(dest, "Coral", Vector3.new(6, 1, 6), CFrame.lookAt(sp, Vector3.new(O.X + rk.x, deckY + 0.5, O.Z + rk.z)))
+	local bp = Vector3.new(O.X + A.boat.x, 1, O.Z + A.boat.z)
+	Util.zone(dest, "Coral_Boat", Vector3.new(6, 1, 6), CFrame.lookAt(bp, bp + Vector3.new(-60, 0, 0)))
+
+	-- kilitli geçit kapısı (mühür anahtar gelince açılacak; şimdilik kalıcı kapalı)
+	for _, sx in { -1, 1 } do
+		stone(f, "GatePillar", Vector3.new(12, 70, 12), CFrame.new(O.X + sx * P.gate, 15, O.Z + P.z), true)
+	end
+	stone(f, "GateLintel", Vector3.new(P.gate * 2 + 12, 8, 12), CFrame.new(O.X, 54, O.Z + P.z))
+	local seal = Util.part(f, "PassSeal", Vector3.new(P.gate * 2 - 12, 62, 3), CFrame.new(O.X, 20, O.Z + P.z), Color3.fromRGB(110, 210, 255), Enum.Material.Neon)
+	seal.Transparency = 0.45
+	seal:SetAttribute("Locked", true)
+	CollectionService:AddTag(seal, "PassSeal")
+	local tag = Util.zone(f, "GateLabel", Vector3.new(1, 1, 1), CFrame.new(O.X, 70, O.Z + P.z))
+	Util.billboard(tag, "Sealed Pass - the Mermaid holds the key", 0, 340).MaxDistance = 800
+
+	-- eski yazıları yeni ada adına çevir (props'u baştan kurmadan)
+	local atoll = Workspace:FindFirstChild("Atoll")
+	if atoll then
+		for _, d in atoll:GetDescendants() do
+			if d:IsA("TextLabel") then
+				if d.Text == "ANCIENT CORAL ATOLL" then
+					d.Text = "MERMAID ISLAND"
+				elseif d.Text == "Ancient Coral Atoll" then
+					d.Text = "Mermaid Island"
+				end
+			end
+		end
+	end
+end
+
 -- Aşama aşama çalıştırılabilir: Atoll.Build("terrain") / Atoll.Build("props") / Atoll.Build()
+-- Sadece Mermaid Island eklerini kurmak (sahneyi silmeden): Atoll.Build("mermaid")
 function Atoll.Build(stage)
 	local c = cfg()
 	O = c.Origin
@@ -705,10 +803,17 @@ function Atoll.Build(stage)
 		Atoll.Ring(c)
 		Atoll.Islets(c)
 		Atoll.Border(c)
+		Atoll.Pass(c)
+	end
+	if stage == "mermaid" then
+		Atoll.Pass(c)
 	end
 	if stage == nil or stage == "props" then
 		Atoll.Structures(c)
 		Atoll.Spots(c)
+	end
+	if stage == nil or stage == "props" or stage == "mermaid" then
+		Atoll.Mermaid(c)
 	end
 end
 
