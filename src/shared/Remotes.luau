@@ -24,6 +24,7 @@ local EVENTS = {
 
 	-- Hareket
 	"TeleportRequest", -- client -> server: "Island" (kendi adama) | "Main" (ana adaya)
+	"SailCinematic", -- server -> client: adalar arası yolculuk animasyonu (boatId, ada adı)
 	"GuideTarget", -- server -> client: ok'u bu Part'a çevir (part, etiket). part = nil ise ok kapanır
 
 	-- Arayüz

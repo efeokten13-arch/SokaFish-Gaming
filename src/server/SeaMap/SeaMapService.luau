@@ -11,9 +11,10 @@ local BoatService = require(script.Parent.Parent.Boat.BoatService)
 
 local SeaMapService = {}
 
-local COOLDOWN = 3
+local COOLDOWN = 5
 local last: { [Player]: number } = {}
 local RED = Color3.fromRGB(255, 140, 120)
+local Remotes = require(ReplicatedStorage:WaitForChild("Shared"):WaitForChild("Remotes"))
 
 local function destination(isl: any): CFrame?
 	if isl.travel == "Main" then
@@ -77,10 +78,21 @@ local function travel(player: Player, id: any)
 		hum.Sit = false
 		task.wait(0.1)
 	end
+	-- yolculuk animasyonu: client denizde süzülen tekneyi gösterir, ekran beyazken ışınlanır
+	Remotes.Event("SailCinematic"):FireClient(player, (data :: any).boat, isl.name)
+	local t0 = os.clock()
 	-- hedef bölgeyi oyuncu için önceden yükle (StreamingEnabled)
 	pcall(function()
 		player:RequestStreamAroundAsync(cf.Position, 5)
 	end)
+	task.wait(math.max(0, SeaMap.Sail.PivotAt - (os.clock() - t0)))
+	if not char.Parent or hum.Health <= 0 then
+		return
+	end
+	if hum.SeatPart then
+		hum.Sit = false
+		task.wait(0.1)
+	end
 	char:PivotTo(cf)
 	local bcf = boatDestination(isl)
 	if bcf then

@@ -385,6 +385,11 @@ end
 -- Akış
 ---------------------------------------------------------------------------------------------
 local function run()
+	-- yolculuk animasyonu (SailCinematic) bitene kadar bekle, sonra başla
+	local t0 = os.clock()
+	while player:GetAttribute("InCutscene") and os.clock() - t0 < 6 do
+		task.wait(0.1)
+	end
 	if running or player:GetAttribute("InCutscene") then
 		return
 	end

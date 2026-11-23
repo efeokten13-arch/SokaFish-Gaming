@@ -31,6 +31,15 @@ export type SeaIsland = {
 
 local SeaMap = {}
 
+-- Adalar arası yolculuk animasyonu (client: Effects/SailCinematic, server: SeaMapService)
+SeaMap.Sail = {
+	PivotAt = 2.3, -- server oyuncuyu bu saniyede ışınlar (ekran o an bembeyaz)
+	SailTime = 2.2, -- teknenin denizde süzüldüğü süre
+	Distance = 170, -- bu sürede gittiği yol (stud)
+	Bell = "rbxassetid://133862401282144", -- gemi çanı (ding ding)
+	Spray = "rbxassetid://9120618797", -- dalga / su fışkırması
+}
+
 -- Tekne seviyeleri: oyuncunun sahip olduğu en yüksek seviyeli tekne sayılır
 SeaMap.BoatLevels = {
 	Rowboat = 1,

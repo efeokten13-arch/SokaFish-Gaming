@@ -22,5 +22,6 @@ require(Client.Tutorial.MermaidIntro).Init()
 require(Client.Tutorial.GuideController).Init()
 require(Client.UI.PoolScreen).Init()
 require(Client.Effects.CoinBurst).Init()
+require(Client.Effects.SailCinematic).Init()
 
 print("[Client] Hazır")
