@@ -1,4 +1,4 @@
--- HUD: üst ortada altın, inci (2. para birimi) ve depo göstergesi, altında kısa bildirimler.
+-- HUD: üst ortada altın ve inci (2. para birimi). Balık sayısı dümen çarkındaki 🎒 rozetinde (UI/Hotbar), altında kısa bildirimler.
 -- UI tamamen koddan kurulur. Envanter (ayrı script) aynı DataUpdated verisini kullanır.
 --
 -- Başka client scriptleri bildirim göstermek için:
@@ -22,7 +22,7 @@ local COLOR_OK = Color3.fromRGB(110, 210, 120)
 local COLOR_FULL = Color3.fromRGB(235, 85, 70)
 local COLOR_PEARL = Color3.fromRGB(215, 170, 255)
 
-local gui, moneyLabel, storageLabel, storagePill, toastHolder, pearlLabel, pearlPill
+local gui, moneyLabel, toastHolder, pearlLabel, pearlPill
 local lastPearls: number? = nil
 local pearlValue = Instance.new("NumberValue")
 local shownMoney = 0
@@ -91,7 +91,7 @@ local function buildUI()
 	bar.Name = "TopBar"
 	bar.AnchorPoint = Vector2.new(0.5, 0)
 	bar.Position = UDim2.new(0.5, 0, 0, 8)
-	bar.Size = UDim2.fromOffset(400, 32)
+	bar.Size = UDim2.fromOffset(280, 32)
 	bar.BackgroundTransparency = 1
 	bar.Parent = gui
 
@@ -145,18 +145,6 @@ local function buildUI()
 	pearlLabel.TextColor3 = COLOR_PEARL
 	pearlPill.Parent = bar
 
-	-- Depo
-	storagePill, storageLabel = makePill("Storage", 100)
-	storagePill.LayoutOrder = 3
-	local fishIcon = Instance.new("TextLabel")
-	fishIcon.Size = UDim2.fromOffset(22, 22)
-	fishIcon.Position = UDim2.fromOffset(8, 5)
-	fishIcon.BackgroundTransparency = 1
-	fishIcon.Text = "🐟"
-	fishIcon.TextScaled = true
-	fishIcon.Parent = storagePill
-	storageLabel.Text = "0/3"
-	storagePill.Parent = bar
 
 	-- Bildirimler (HUD'un altında, alt alta)
 	toastHolder = Instance.new("Frame")
@@ -299,15 +287,8 @@ local function applyData(data: any)
 	-- Depo
 	local count = #(data.storage or {})
 	local slots = data.slots or 3
-	storageLabel.Text = count .. "/" .. slots
 	local full = count >= slots
-	storageLabel.TextColor3 = if full then COLOR_FULL else Color3.new(1, 1, 1)
-	local s = storagePill:FindFirstChildOfClass("UIStroke")
-	if s then
-		s.Color = if full then COLOR_FULL else Color3.new(1, 1, 1)
-	end
 	if full and not lastFull then
-		pulse(storagePill)
 		UIController.Notify("Depo doldu! Satmak için limana dön", COLOR_FULL)
 	end
 	lastFull = full

@@ -345,6 +345,11 @@ function Hotbar.Init()
 	local ok, inv = pcall(require, script.Parent:WaitForChild("Inventory"))
 	if ok then
 		inventory = inv
+		-- balık sayısı rozeti 🎒 tutamağına (simgeye takılı: dümen dönünce dik kalır)
+		local h = handles[slotOf("Bag")]
+		if h and inventory.AttachButton then
+			inventory.AttachButton(h.button, h.icon)
+		end
 	end
 
 	UserInputService.InputBegan:Connect(function(input, processed)

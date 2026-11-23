@@ -1,7 +1,8 @@
 --!nonstrict
 -- Sırt çantası (teknedeki / üstümüzdeki balıklar) + Malzemeler satırı (tahta, metal, inci: yer kaplamaz).
 --   Dümen çarkındaki 🎒 tutamağı (2) da çantayı açar: Inventory.Toggle()
---   Soldaki 🐟 "Fish" butonu (veya G) çantayı açar: her balık bir kutucuk (3D model, ad, fiyat). Dokununca seçilir.
+--   Dümen çarkındaki 🎒 tutamağı (veya G) çantayı açar: her balık bir kutucuk (3D model, ad, fiyat). Dokununca seçilir.
+--   Balık sayısı (ör. 3/5) o tutamağın üstünde rozet olarak durur. (Soldaki 🐟 butonu ve üstteki 🐟 göstergesi kaldırıldı.)
 --   Alttaki butonlar bulunduğun yere göre değişir:
 --     * Balık pazarının yanında: "Sell selected" / "Sell all"  (çanta pazara yaklaşınca kendiliğinden açılır)
 --     * Kendi adandaki havuzun yanında: "To pool" / "All to pool"
@@ -321,7 +322,12 @@ local function setOpen(open, auto)
 	isOpen = open
 	autoOpened = open and (auto == true) or false
 	panel.Visible = open
-	Theme.SetActive(toggleButton, open)
+	if toggleButton then
+		local st = toggleButton:FindFirstChildOfClass("UIStroke")
+		if st then
+			st.Color = open and Color3.fromRGB(255, 214, 90) or Color3.fromRGB(230, 182, 72)
+		end
+	end
 	if open then
 		place = detectPlace()
 		render()
@@ -334,7 +340,7 @@ local function setOpen(open, auto)
 end
 
 local function pulse()
-	local s = toggleButton:FindFirstChildOfClass("UIScale")
+	local s = toggleButton and toggleButton:FindFirstChildOfClass("UIScale")
 	if s then
 		s.Scale = 1.25
 		TweenService:Create(s, TweenInfo.new(0.35, Enum.EasingStyle.Back), { Scale = 1 }):Play()
@@ -349,31 +355,20 @@ local function buildUI()
 	gui.DisplayOrder = 8
 	gui.Parent = player:WaitForChild("PlayerGui")
 
-	toggleButton = Instance.new("TextButton")
-	toggleButton.Name = "InventoryButton"
-	toggleButton.Text = "🐟"
-	toggleButton.TextScaled = true
-	toggleButton.Font = Enum.Font.GothamBold
-	Instance.new("UIScale").Parent = toggleButton
-	toggleButton.Parent = gui
-	Theme.StyleRound(toggleButton, "Fish")
-	toggleButton.AnchorPoint = Vector2.new(0, 0.5)
-	toggleButton.Position = Theme.LeftColumn(-1)
-
+	-- Balık sayısı rozeti: dümen çarkındaki 🎒 tutamağına takılır (Inventory.AttachButton, UI/Hotbar)
 	badge = Instance.new("TextLabel")
 	badge.Name = "Badge"
 	badge.Size = UDim2.fromOffset(40, 22)
 	badge.AnchorPoint = Vector2.new(0.5, 0.5)
-	badge.Position = UDim2.new(1, 4, 0, 4)
+	badge.Position = UDim2.new(1, 8, 1, 2)
 	badge.BackgroundColor3 = ACCENT
 	badge.TextColor3 = Color3.new(1, 1, 1)
 	badge.Font = Enum.Font.GothamBold
 	badge.TextScaled = true
 	badge.Text = "0/3"
-	badge.ZIndex = 3
+	badge.ZIndex = 6
 	corner(badge, 11)
 	stroke(badge, Color3.new(1, 1, 1), 2)
-	badge.Parent = toggleButton
 
 	panel = Instance.new("Frame")
 	panel.Name = "Backpack"
@@ -522,11 +517,17 @@ function Inventory.Toggle()
 	end
 end
 
+-- Dümen çarkı (UI/Hotbar) 🎒 tutamağını verir: rozet onun üstüne takılır, balık tutunca o zıplar.
+-- (Tıklamayı Hotbar yönetir ve Inventory.Toggle çağırır.)
+function Inventory.AttachButton(button: GuiObject, badgeParent: GuiObject?)
+	toggleButton = button
+	if badge then
+		badge.Parent = badgeParent or button
+	end
+end
+
 function Inventory.Init()
 	buildUI()
-	toggleButton.Activated:Connect(function()
-		setOpen(not isOpen)
-	end)
 	UserInputService.InputBegan:Connect(function(input, processed)
 		if not processed and input.KeyCode == TOGGLE_KEY then
 			setOpen(not isOpen)

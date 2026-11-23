@@ -682,7 +682,7 @@ local function build()
 	hud.DisplayOrder = 4
 	hud.Parent = player.PlayerGui
 	local Theme = require(script.Parent:WaitForChild("Theme"))
-	local btn = Theme.Button(hud, "MapButton", "🗺️", "Map", Theme.LeftColumn(-2))
+	local btn = Theme.Button(hud, "MapButton", "🗺️", "Map", Theme.LeftColumn(-1)) -- (eskiden -2; 🐟 Fish butonu kaldırıldı)
 	btn.Activated:Connect(function()
 		if isOpen then
 			close()
