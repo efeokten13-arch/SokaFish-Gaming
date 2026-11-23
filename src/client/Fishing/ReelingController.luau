@@ -56,6 +56,8 @@ local MESSAGES = {
 	nofish = "Burada balık yok",
 	notwater = "Buraya olta atamazsın, suya dön",
 	invalid = "Bir şeyler ters gitti",
+	norod = "Önce dümenden oltanı seç (1)",
+	stowed = "Oltayı kaldırdın",
 }
 
 local COLOR_BTN = Color3.fromRGB(30, 140, 210)
@@ -1150,7 +1152,13 @@ function ReelingController.Init()
 			scanTimer = 0.2
 			nearSpot = findNearestSpot()
 			openWaterPoint = findOpenWater()
-			button.Visible = nearSpot ~= nil or openWaterPoint ~= nil or phase ~= "idle"
+			-- "At" butonu sadece olta dümen çarkından seçiliyse çıkar (UI/Hotbar)
+			local canHere = nearSpot ~= nil or openWaterPoint ~= nil
+			if player:GetAttribute("CanFishHere") ~= canHere then
+				player:SetAttribute("CanFishHere", canHere)
+			end
+			local rodOut = player:GetAttribute("Equipped") == "Rod"
+			button.Visible = ((rodOut and canHere) or phase ~= "idle") and player:GetAttribute("InCutscene") ~= true
 		end
 		if phase == "reeling" then
 			updateReel(dt)

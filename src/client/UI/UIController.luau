@@ -1,4 +1,4 @@
--- HUD: üst ortada para ve depo göstergesi, altında kısa bildirimler.
+-- HUD: üst ortada altın, inci (2. para birimi) ve depo göstergesi, altında kısa bildirimler.
 -- UI tamamen koddan kurulur. Envanter (ayrı script) aynı DataUpdated verisini kullanır.
 --
 -- Başka client scriptleri bildirim göstermek için:
@@ -20,8 +20,11 @@ local COLOR_PANEL = Color3.fromRGB(20, 30, 45)
 local COLOR_GOLD = Color3.fromRGB(255, 200, 60)
 local COLOR_OK = Color3.fromRGB(110, 210, 120)
 local COLOR_FULL = Color3.fromRGB(235, 85, 70)
+local COLOR_PEARL = Color3.fromRGB(215, 170, 255)
 
-local gui, moneyLabel, storageLabel, storagePill, toastHolder
+local gui, moneyLabel, storageLabel, storagePill, toastHolder, pearlLabel, pearlPill
+local lastPearls: number? = nil
+local pearlValue = Instance.new("NumberValue")
 local shownMoney = 0
 local lastMoney: number? = nil
 local lastFull = false
@@ -88,7 +91,7 @@ local function buildUI()
 	bar.Name = "TopBar"
 	bar.AnchorPoint = Vector2.new(0.5, 0)
 	bar.Position = UDim2.new(0.5, 0, 0, 8)
-	bar.Size = UDim2.fromOffset(280, 32)
+	bar.Size = UDim2.fromOffset(400, 32)
 	bar.BackgroundTransparency = 1
 	bar.Parent = gui
 
@@ -113,9 +116,38 @@ local function buildUI()
 	moneyLabel.Text = "0"
 	moneyPill.Parent = bar
 
+	-- İnci (2. para birimi): sedef rengi küçük inci
+	pearlPill, pearlLabel = makePill("Pearls", 110)
+	pearlPill.LayoutOrder = 2
+	local pearl = Instance.new("Frame")
+	pearl.Size = UDim2.fromOffset(18, 18)
+	pearl.Position = UDim2.fromOffset(10, 7)
+	pearl.BackgroundColor3 = Color3.new(1, 1, 1)
+	corner(pearl, UDim.new(0.5, 0))
+	stroke(pearl, Color3.fromRGB(190, 150, 235), 2)
+	local pg = Instance.new("UIGradient")
+	pg.Color = ColorSequence.new({
+		ColorSequenceKeypoint.new(0, Color3.fromRGB(255, 255, 255)),
+		ColorSequenceKeypoint.new(0.5, Color3.fromRGB(240, 220, 255)),
+		ColorSequenceKeypoint.new(1, Color3.fromRGB(200, 175, 235)),
+	})
+	pg.Rotation = 45
+	pg.Parent = pearl
+	local shine = Instance.new("Frame")
+	shine.Size = UDim2.fromOffset(5, 5)
+	shine.Position = UDim2.fromOffset(4, 3)
+	shine.BackgroundColor3 = Color3.new(1, 1, 1)
+	shine.BorderSizePixel = 0
+	corner(shine, UDim.new(0.5, 0))
+	shine.Parent = pearl
+	pearl.Parent = pearlPill
+	pearlLabel.Text = "0"
+	pearlLabel.TextColor3 = COLOR_PEARL
+	pearlPill.Parent = bar
+
 	-- Depo
 	storagePill, storageLabel = makePill("Storage", 100)
-	storagePill.LayoutOrder = 2
+	storagePill.LayoutOrder = 3
 	local fishIcon = Instance.new("TextLabel")
 	fishIcon.Size = UDim2.fromOffset(22, 22)
 	fishIcon.Position = UDim2.fromOffset(8, 5)
@@ -150,8 +182,14 @@ moneyValue.Changed:Connect(function(v)
 	end
 end)
 
-local function floatDelta(delta: number)
-	local moneyPill = moneyLabel.Parent :: Frame
+pearlValue.Changed:Connect(function(v)
+	if pearlLabel then
+		pearlLabel.Text = formatNumber(v)
+	end
+end)
+
+local function floatDelta(delta: number, pill: Frame?, upColor: Color3?)
+	local moneyPill = pill or (moneyLabel.Parent :: Frame)
 	local label = Instance.new("TextLabel")
 	label.Size = UDim2.fromOffset(120, 26)
 	label.AnchorPoint = Vector2.new(0.5, 0)
@@ -161,7 +199,7 @@ local function floatDelta(delta: number)
 	label.TextScaled = true
 	label.TextStrokeTransparency = 0.3
 	label.Text = (if delta > 0 then "+" else "-") .. formatNumber(math.abs(delta))
-	label.TextColor3 = if delta > 0 then COLOR_OK else COLOR_FULL
+	label.TextColor3 = if delta > 0 then (upColor or COLOR_OK) else COLOR_FULL
 	label.Parent = moneyPill
 	local tween = TweenService:Create(label, TweenInfo.new(1.2, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), {
 		Position = UDim2.new(0.5, 0, 1, 30),
@@ -245,6 +283,17 @@ local function applyData(data: any)
 	lastMoney = money
 	TweenService:Create(moneyValue, TweenInfo.new(0.6, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), {
 		Value = money,
+	}):Play()
+
+	-- İnci
+	local pearls = data.pearls or 0
+	if lastPearls ~= nil and pearls ~= lastPearls then
+		floatDelta(pearls - lastPearls, pearlPill, COLOR_PEARL)
+		pulse(pearlPill)
+	end
+	lastPearls = pearls
+	TweenService:Create(pearlValue, TweenInfo.new(0.6, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), {
+		Value = pearls,
 	}):Play()
 
 	-- Depo

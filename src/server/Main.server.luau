@@ -21,6 +21,7 @@ local services = {
 	require(Server.Combat.CannonService),
 	require(Server.Combat.PracticeService),
 	require(Server.Treasure.TreasureService),
+	require(Server.Treasure.WreckService),
 	require(Server.Shop.RodShopService),
 	require(Server.Weather.StormService),
 	require(Server.Fish.SchoolService),

@@ -1,20 +1,27 @@
 --!strict
--- Hazine sandıkları ("TreasureChest" tag'li modeller): basılı tutup aç, para kazan.
--- Her oyuncu her sandığı RespawnMinutes'ta bir açabilir. Kapak açılıp kapanır (herkes görür).
+-- Hazine sandıkları ("TreasureChest" tag'li modeller): basılı tutup aç, 3 ödül kazan (Config/Items.Chest).
+-- Her oyuncu her sandığı RespawnMinutes'ta bir açabilir.
+-- Akış: ödüller hemen seçilip veriye yazılır -> açan oyuncuya LootReveal (yakınlaşma, sallanma, renkli ışık:
+--   client/Effects/LootReveal) -> sallanma bitince kapak açılır (herkes görür) -> kartlar uçunca HUD güncellenir.
 local CollectionService = game:GetService("CollectionService")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local TweenService = game:GetService("TweenService")
 local Players = game:GetService("Players")
 
 local Cfg = require(ReplicatedStorage:WaitForChild("Shared"):WaitForChild("Config"):WaitForChild("Treasure"))
+local Items = require(ReplicatedStorage.Shared.Config:WaitForChild("Items"))
 local DataService = require(script.Parent.Parent.Data.DataService)
+local Remotes = require(ReplicatedStorage.Shared:WaitForChild("Remotes"))
+local Loot = require(script.Parent.Loot)
+
+local LID_DELAY = 2.45 -- client yakınlaşma + sallanma (LootReveal TIMING.chest zoom+shake = 2.3 sn) bitince kapak açılır
+local PUSH_DELAY = 5.3 -- ödül kartları uçunca para / inci sayacı güncellenir
 
 local TreasureService = {}
 
 local opened: { [Player]: { [Instance]: number } } = {}
-local rng = Random.new()
 
-local function animateLid(model: Model)
+local function animateLid(model: Model, color: Color3?)
 	local lid = model:FindFirstChild("Lid") :: BasePart?
 	local glow = model:FindFirstChild("Glow") :: BasePart?
 	local closed = model:GetAttribute("LidClosed") :: CFrame?
@@ -27,9 +34,12 @@ local function animateLid(model: Model)
 	local open = hinge * CFrame.Angles(math.rad(-100), 0, 0) * hinge:Inverse() * closed
 	TweenService:Create(lid, TweenInfo.new(0.4, Enum.EasingStyle.Back), { CFrame = open }):Play()
 	if glow then
+		if color then
+			glow.Color = color
+		end
 		TweenService:Create(glow, TweenInfo.new(0.3), { Transparency = 0.1 }):Play()
 	end
-	task.delay(3, function()
+	task.delay(4, function()
 		TweenService:Create(lid, TweenInfo.new(0.4), { CFrame = closed }):Play()
 		if glow then
 			TweenService:Create(glow, TweenInfo.new(0.3), { Transparency = 1 }):Play()
@@ -57,12 +67,15 @@ local function onOpen(player: Player, model: Model)
 		return
 	end
 	mine[model] = now
-	local tier = Cfg.Tiers[model:GetAttribute("Tier") :: string] or Cfg.Tiers.Small
-	local gold = rng:NextInteger(tier.min, tier.max)
-	data.money += gold
-	DataService.Push(player)
-	DataService.Notify(player, "Treasure! +$" .. gold, Color3.fromRGB(255, 214, 80))
-	animateLid(model)
+	local rewards, top = Loot.Roll("chest", model:GetAttribute("Tier") :: string?)
+	Loot.Grant(player, rewards)
+	Remotes.Event("LootReveal"):FireClient(player, "chest", model, rewards, top)
+	task.delay(LID_DELAY, animateLid, model, (Items.TierColors :: any)[top])
+	task.delay(PUSH_DELAY, function()
+		if player.Parent then
+			DataService.Push(player)
+		end
+	end)
 end
 
 local function setup(model: Instance)

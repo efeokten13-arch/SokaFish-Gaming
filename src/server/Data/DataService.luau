@@ -6,7 +6,7 @@
 --
 -- Client'a giden veri formatı (HUD ve envanter bunu kullanır):
 --   {
---     money = 1250,
+--     money = 1250, pearls = 7, wood = 12, metal = 3,   -- altın, inci (2. para), malzemeler (çantada yer kaplamaz)
 --     storage = { "Cod", "SeaBass" },   -- teknedeki balık id'leri
 --     slots = 3,                        -- teknenin slot sayısı
 --     protectedSlots = 1,
@@ -30,6 +30,9 @@ local store = DataStoreService:GetDataStore("PlayerData_v1")
 
 export type PlayerData = {
 	money: number,
+	pearls: number, -- 2. para birimi (sandıklar, nadir balıklar). Büyü, gemi yükseltme, en pahalı oltalar
+	wood: number, -- malzeme (sandık, batık gemi enkazı)
+	metal: number, -- malzeme (sandık, batık gemi enkazı)
 	boat: string,
 	rod: string,
 	bait: string,
@@ -52,6 +55,9 @@ export type PlayerData = {
 local function defaultData(): PlayerData
 	return {
 		money = Economy.StartingMoney,
+		pearls = 0,
+		wood = 0,
+		metal = 0,
 		boat = Boats.Starter,
 		rod = Economy.StarterRod,
 		bait = "BasicBait",
@@ -82,6 +88,9 @@ function DataService.Payload(player: Player): any
 	local boat = (Boats :: any)[data.boat]
 	return {
 		money = data.money,
+		pearls = data.pearls or 0,
+		wood = data.wood or 0,
+		metal = data.metal or 0,
 		storage = table.clone(data.storage),
 		slots = if boat then boat.slots else 3,
 		protectedSlots = Boats.ProtectedSlots,
@@ -104,6 +113,16 @@ function DataService.Push(player: Player)
 	if payload then
 		Remotes.Event("DataUpdated"):FireClient(player, payload)
 	end
+end
+
+-- Eşya / para ver (Config/Items.Defs'teki alan: money, pearls, wood, metal). Push ayrıca çağrılmalı.
+function DataService.Give(player: Player, field: string, amount: number)
+	local data = cache[player]
+	if not data or amount == 0 then
+		return
+	end
+	local d = data :: any
+	d[field] = math.max(0, (d[field] or 0) + amount)
 end
 
 -- Oyuncuya kısa bildirim gönder (HUD gösterir)

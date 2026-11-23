@@ -42,6 +42,10 @@ local EVENTS = {
 	"SellFish", -- client -> server: çantadaki balıkları sat (slot numaraları listesi; nil = hepsi). Balık pazarının yanında olmalı
 	"PoolDeposit", -- client -> server: çantadaki balıkları havuza koy (slot listesi; nil = sığdığı kadar). Kendi havuzunun yanında olmalı
 	"PoolSell", -- client -> server: havuzdaki i. balığı sat (havuz TV'sinden)
+
+	-- Eşyalar
+	"EquipTool", -- client -> server: dümen çarkından araç seç ("Rod" | nil = elleri boşalt)
+	"LootReveal", -- server -> client: sandık / enkaz açıldı (tür "chest"|"wreck", model, ödüller {id, amount, tier}, en nadir tier)
 }
 
 local FUNCTIONS = {

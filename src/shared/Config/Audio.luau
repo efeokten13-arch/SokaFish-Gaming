@@ -43,6 +43,13 @@ return {
 	QuestMusic = "rbxassetid://9043602056", -- aksiyon müziği: "Ghost Ship" (APM), kapı açılınca başlar, gemi batınca durur
 	QuestMusicVolume = 0.5,
 	VictorySting = "rbxassetid://83315768373322", -- "Island 3 unlocked" zafer müziği (APM)
+	-- Sandık / enkaz açılışı (client/Effects/LootReveal). Pro Sound Effects + APM, ücretsiz
+	ChestShake = "rbxassetid://9120829478", -- sallanırken tahta gıcırtısı
+	ChestRiser = "rbxassetid://1837834284", -- açılmadan önce yükselen gerilim
+	ChestOpen = "rbxassetid://9120881884", -- kapak açılma gıcırtısı
+	ChestFanfare = "rbxassetid://1840076509", -- yeşil / mavi ödül: kısa neşeli müzik
+	ChestFanfareBig = "rbxassetid://9041792228", -- mor / sarı ödül: büyük müzik
+	RewardPop = "rbxassetid://109359226723492", -- her ödül kartı çıkınca "pop"
 	GateCreak = "rbxassetid://9120839599", -- ahşap kapı gıcırtısı (yavaş çalınır = dev kapı)
 	ChainRattle = "rbxassetid://9116791182", -- vinç zinciri şıngırtısı
 }

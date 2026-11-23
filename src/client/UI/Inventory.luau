@@ -1,5 +1,6 @@
 --!nonstrict
--- Sırt çantası (teknedeki / üstümüzdeki balıklar).
+-- Sırt çantası (teknedeki / üstümüzdeki balıklar) + Malzemeler satırı (tahta, metal, inci: yer kaplamaz).
+--   Dümen çarkındaki 🎒 tutamağı (2) da çantayı açar: Inventory.Toggle()
 --   Soldaki 🐟 "Fish" butonu (veya G) çantayı açar: her balık bir kutucuk (3D model, ad, fiyat). Dokununca seçilir.
 --   Alttaki butonlar bulunduğun yere göre değişir:
 --     * Balık pazarının yanında: "Sell selected" / "Sell all"  (çanta pazara yaklaşınca kendiliğinden açılır)
@@ -42,6 +43,8 @@ local gui, toggleButton, badge, panel, panelScale, title, banner, grid, selLabel
 local btnAll, btnSelected, btnSelectAll
 local isOpen, autoOpened = false, false
 local storage, slots, poolCount = {}, 3, 0
+local materials = { wood = 0, metal = 0, pearls = 0 }
+local matLabels = {} -- [alan] = TextLabel
 local selected = {} -- [slot] = true
 local place = "none" -- "market" | "pool" | "none"
 local spinning = {}
@@ -292,6 +295,9 @@ local function render()
 		end
 	end
 	title.Text = "🎒 BACKPACK   " .. #storage .. "/" .. slots
+	for field, l in matLabels do
+		l.Text = tostring(materials[field] or 0)
+	end
 	refreshBar()
 end
 
@@ -302,6 +308,7 @@ local function applyData(data)
 	storage = data.storage or {}
 	slots = data.slots or ((Boats :: any)[data.boat] and (Boats :: any)[data.boat].slots) or 3
 	poolCount = data.pool and #data.pool or poolCount
+	materials.wood, materials.metal, materials.pearls = data.wood or 0, data.metal or 0, data.pearls or 0
 	selected = {}
 	badge.Text = #storage .. "/" .. slots
 	badge.BackgroundColor3 = #storage >= slots and FULL or ACCENT
@@ -382,7 +389,7 @@ local function buildUI()
 	panelScale.Parent = panel
 	local lim = Instance.new("UISizeConstraint")
 	lim.MinSize = Vector2.new(320, 300)
-	lim.MaxSize = Vector2.new(720, 470)
+	lim.MaxSize = Vector2.new(720, 510)
 	lim.Parent = panel
 	panel.Parent = gui
 
@@ -404,9 +411,41 @@ local function buildUI()
 		setOpen(false)
 	end)
 
+	-- Malzemeler: balık yeri kaplamaz, sadece sayı
+	local mats = Instance.new("Frame")
+	mats.Name = "Materials"
+	mats.Position = UDim2.fromOffset(12, 66)
+	mats.Size = UDim2.new(1, -24, 0, 34)
+	mats.BackgroundColor3 = Color3.fromRGB(26, 40, 58)
+	corner(mats, 10)
+	mats.Parent = panel
+	local ml = Instance.new("UIListLayout")
+	ml.FillDirection = Enum.FillDirection.Horizontal
+	ml.VerticalAlignment = Enum.VerticalAlignment.Center
+	ml.Padding = UDim.new(0, 10)
+	ml.SortOrder = Enum.SortOrder.LayoutOrder
+	ml.Parent = mats
+	local mp = Instance.new("UIPadding")
+	mp.PaddingLeft = UDim.new(0, 10)
+	mp.Parent = mats
+	local head = text(mats, "MATERIALS", UDim2.fromOffset(90, 18), UDim2.new(), MUTED, Enum.Font.GothamBlack, 13, Enum.TextXAlignment.Left)
+	head.LayoutOrder = 0
+	for i, m in { { "wood", "🌲", "Wood", Color3.fromRGB(205, 150, 95) }, { "metal", "🔩", "Metal", Color3.fromRGB(140, 190, 255) }, { "pearls", "🦪", "Pearls", Color3.fromRGB(215, 170, 255) } } do
+		local chip = Instance.new("Frame")
+		chip.LayoutOrder = i
+		chip.Size = UDim2.fromOffset(118, 26)
+		chip.BackgroundColor3 = Color3.fromRGB(18, 30, 46)
+		corner(chip, 13)
+		stroke(chip, m[4], 1.5)
+		text(chip, m[2], UDim2.fromOffset(22, 20), UDim2.fromOffset(6, 3), Color3.new(1, 1, 1), Enum.Font.GothamBold, 18)
+		text(chip, m[3], UDim2.fromOffset(52, 18), UDim2.fromOffset(30, 4), m[4], Enum.Font.GothamBold, 13, Enum.TextXAlignment.Left)
+		matLabels[m[1]] = text(chip, "0", UDim2.fromOffset(34, 18), UDim2.new(1, -38, 0, 4), Color3.new(1, 1, 1), Enum.Font.GothamBlack, 15, Enum.TextXAlignment.Right)
+		chip.Parent = mats
+	end
+
 	grid = Instance.new("ScrollingFrame")
-	grid.Position = UDim2.fromOffset(12, 68)
-	grid.Size = UDim2.new(1, -24, 1, -134)
+	grid.Position = UDim2.fromOffset(12, 108)
+	grid.Size = UDim2.new(1, -24, 1, -174)
 	grid.BackgroundTransparency = 1
 	grid.BorderSizePixel = 0
 	grid.ScrollBarThickness = 5
@@ -475,6 +514,12 @@ local function buildUI()
 			Remotes.Event("PoolDeposit"):FireServer(nil)
 		end
 	end)
+end
+
+function Inventory.Toggle()
+	if panel then
+		setOpen(not isOpen)
+	end
 end
 
 function Inventory.Init()

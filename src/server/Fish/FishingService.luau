@@ -24,6 +24,7 @@ local DataService = require(Server.Data.DataService)
 local BoatService = require(Server.Boat.BoatService)
 local FishingVisuals = require(Server.Fish.FishingVisuals)
 local FishingWater = require(Shared:WaitForChild("FishingWater"))
+local Loot = require(Server.Treasure.Loot)
 
 local FishingService = {}
 
@@ -137,6 +138,11 @@ local function onCast(player: Player, spot: any)
 		Remotes.Event("FishingEnded"):FireClient(player, "invalid")
 		return
 	end
+	-- olta dümen çarkından seçilmemişse atılamaz (client/UI/Hotbar)
+	if player:GetAttribute("Equipped") ~= "Rod" then
+		Remotes.Event("FishingEnded"):FireClient(player, "norod")
+		return
+	end
 	if #data.storage >= BoatService.GetSlotCount(data.boat) then
 		Remotes.Event("FishingEnded"):FireClient(player, "full")
 		return
@@ -246,6 +252,12 @@ local function onReel(player: Player, success: any)
 	FishingVisuals.Caught(player, s.fishId)
 	-- ikinci değer: bu tür ilk kez mi tutuldu (client büyük gösterim yapar)
 	Remotes.Event("FishCaught"):FireClient(player, s.fishId, caught[s.fishId] == 1)
+	-- nadir balık: düşük ihtimalle inci (Config/Items.FishPearls)
+	local def = Fish[s.fishId]
+	local pearls = if def then Loot.FishPearls(player, def.rarity) else 0
+	if pearls > 0 then
+		DataService.Notify(player, "🦪 Lucky! +" .. pearls .. " pearl" .. (if pearls > 1 then "s" else "") .. " from the fish", Color3.fromRGB(205, 150, 255))
+	end
 	DataService.Push(player)
 	GuideService.Event(player, "catch")
 end
@@ -256,6 +268,42 @@ function FishingService.Init()
 	Remotes.Event("CastRequest").OnServerEvent:Connect(onCast)
 	Remotes.Event("HookRequest").OnServerEvent:Connect(onHook)
 	Remotes.Event("ReelResult").OnServerEvent:Connect(onReel)
+	-- Dümen çarkı: "Rod" = olta ele, nil = eller boş
+	Remotes.Event("EquipTool").OnServerEvent:Connect(function(player, tool)
+		if tool == "Rod" then
+			local data = DataService.Get(player)
+			if not data or not table.find((data :: any).ownedRods, data.rod) then
+				player:SetAttribute("Equipped", nil)
+				DataService.Notify(player, "You need a fishing rod! Get a FREE one at the Rod Shop.", Color3.fromRGB(255, 140, 120))
+				return
+			end
+			player:SetAttribute("Equipped", "Rod")
+			FishingVisuals.Equip(player, data.rod)
+		else
+			player:SetAttribute("Equipped", nil)
+			if sessions[player] then
+				endSession(player, "stowed")
+			end
+			FishingVisuals.Unequip(player)
+		end
+	end)
+	local function onCharacter(player: Player)
+		player.CharacterAdded:Connect(function(char)
+			-- yeniden doğunca olta seçili kaldıysa tekrar ele ver
+			if player:GetAttribute("Equipped") == "Rod" then
+				char:WaitForChild("RightHand", 5)
+				char:WaitForChild("HumanoidRootPart", 5)
+				local data = DataService.Get(player)
+				if data and player:GetAttribute("Equipped") == "Rod" then
+					FishingVisuals.Equip(player, data.rod)
+				end
+			end
+		end)
+	end
+	Players.PlayerAdded:Connect(onCharacter)
+	for _, p in Players:GetPlayers() do
+		onCharacter(p)
+	end
 	Players.PlayerRemoving:Connect(function(p)
 		sessions[p] = nil
 		clearOpenCast(p)

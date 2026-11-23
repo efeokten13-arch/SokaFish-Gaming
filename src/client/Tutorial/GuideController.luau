@@ -27,7 +27,7 @@ local function build()
 	card = Instance.new("Frame")
 	card.Name = "Quest"
 	card.AnchorPoint = Vector2.new(0.5, 1)
-	card.Position = UDim2.new(0.5, 0, 1, -24) -- altta ortada (üstteki yön okuyla çakışmasın)
+	card.Position = UDim2.new(0.5, 0, 1, -170) -- altta ortada, dümen çarkının üstünde (üstteki yön okuyla çakışmasın)
 	card.Size = UDim2.fromOffset(460, 44)
 	card.AutomaticSize = Enum.AutomaticSize.Y
 	card.BackgroundColor3 = Color3.fromRGB(20, 28, 42)
@@ -127,7 +127,7 @@ end
 local TIPS = {
 	rod = "Walk into the Rod Shop and grab the Branch Rod.",
 	boat = "The little Rowboat costs only $1. Hold E (or tap) to buy it!",
-	fish = "Tap the big fishing button (or press F) to throw your line into the water.",
+	fish = "Pick your rod on the ship's wheel (press 1), then tap the big fishing button (or press F).",
 	pool = "Find the Fish Pool on your island's dock and put your fish in. They earn coins every minute!",
 }
 

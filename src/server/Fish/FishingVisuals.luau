@@ -252,6 +252,14 @@ function FishingVisuals.Equip(player: Player, rodId: string)
 	end
 end
 
+-- Dümen çarkından olta bırakılınca: olta elden kalkar (balık tutarken değil)
+function FishingVisuals.Unequip(player: Player)
+	local st = states[player]
+	if st and not st.bobber then
+		removeRod(st)
+	end
+end
+
 function FishingVisuals.Cast(player: Player, spot: BasePart, rodId: string)
 	FishingVisuals.Equip(player, rodId)
 	local st = getState(player)
@@ -445,11 +453,14 @@ function FishingVisuals.Init()
 		states[player] = nil
 	end)
 
-	-- Bir süre balık tutulmazsa olta elden kalkar
+	-- Bir süre balık tutulmazsa olta elden kalkar (dümen çarkında olta seçiliyse kalkmaz)
 	task.spawn(function()
 		while true do
 			task.wait(1)
-			for _, st in states do
+			for p, st in states do
+				if p:GetAttribute("Equipped") == "Rod" then
+					continue
+				end
 				if st.rod and not st.bobber and os.clock() - st.lastActive > Cfg.RodHideDelay then
 					removeRod(st)
 				end
