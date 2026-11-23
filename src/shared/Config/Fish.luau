@@ -6,12 +6,12 @@
 -- ocean: hangi okyanusta çıkar · spots: "Near" | "Mid" | "Far" (açık denizde merkeze uzaklık)
 -- retired = true: artık tutulamaz ve kitapta görünmez (eski kayıtlarda kalan balıklar için duruyor)
 -- look: 3D model (shared/FishModelBuilder.luau). Alanlar:
---   kind: "fish" (varsayılan) | "puffer" | "lionfish" | "seahorse" | "ray" | "jelly" | "eel" | "octopus" | "angler" | "billfish" | "shark"
+--   kind: "fish" (varsayılan) | "puffer" | "lionfish" | "seahorse" | "ray" | "jelly" | "eel" | "octopus" | "squid" | "angler" | "billfish" | "shark"
 --   length: boy (stud) · body / belly / fin: renkler · accent: desen / ikinci renk · eye: göz bebeği rengi
 --   shape (kind "fish"): "Slim" | "Normal" | "Deep" | "Round" | "Torpedo"
 --   tail: "fork" | "fan" | "lunate" · dorsal: "soft" | "spiny" | "sail" | "fancy"
 --   pattern: "spots" | "speckle" | "bars" | "lines" | "bands" | "patches" | nil
---   extras: { "Beak", "Whiskers", "Finlets", "Hammer", "Pearl" }
+--   extras: { "Beak", "Whiskers", "Finlets", "Hammer", "Pearl", "Teeth", "FinTips" } · bandsAt / bandEdge: bant yerleri ve kenar rengi
 --   reflect: 0-1 parlaklık · metal: true = metal malzeme (altın balıklar) · glow: true = parlar (ışık + neon detaylar)
 
 export type FishLook = {
@@ -30,6 +30,8 @@ export type FishLook = {
 	reflect: number?,
 	glow: boolean?,
 	metal: boolean?,
+	bandsAt: { number }?,
+	bandEdge: Color3?,
 }
 
 export type FishDef = {
@@ -63,8 +65,8 @@ local Fish: { [string]: FishDef } = {
 	Cod = {
 		displayName = "Cod", rarity = "Common", sell = 5, perMinute = 1,
 		ocean = "Warm", island = 1, order = 2, spots = ALL,
-		look = { kind = "fish", shape = "Normal", length = 2.3, body = C(140, 122, 82), belly = C(232, 224, 200), fin = C(115, 98, 66),
-			accent = C(95, 80, 52), tail = "fan", dorsal = "soft", pattern = "speckle", extras = { "Whiskers" } },
+		look = { kind = "fish", shape = "Normal", length = 2.3, body = C(128, 130, 82), belly = C(228, 226, 196), fin = C(105, 108, 66),
+			accent = C(80, 82, 48), tail = "fan", dorsal = "soft", pattern = "speckle", extras = { "Whiskers" } },
 	},
 	Mackerel = {
 		displayName = "Mackerel", rarity = "Common", sell = 8, perMinute = 2,
@@ -72,47 +74,47 @@ local Fish: { [string]: FishDef } = {
 		look = { kind = "fish", shape = "Slim", length = 2.1, body = C(40, 128, 135), belly = C(222, 232, 236), fin = C(40, 95, 105),
 			accent = C(20, 45, 60), tail = "fork", dorsal = "soft", pattern = "bars", reflect = 0.2 },
 	},
+	Clownfish = {
+		displayName = "Clownfish", rarity = "Uncommon", sell = 18, perMinute = 4,
+		ocean = "Warm", island = 1, order = 4, spots = ALL,
+		look = { kind = "fish", shape = "Round", length = 1.7, body = C(255, 120, 20), belly = C(255, 150, 60), fin = C(255, 130, 30),
+			accent = C(255, 255, 255), tail = "fan", dorsal = "soft", pattern = "bands", bandsAt = { -0.5, 0.0, 0.55 }, bandEdge = C(25, 25, 30) },
+	},
 	SeaBass = {
 		displayName = "Sea Bass", rarity = "Uncommon", sell = 25, perMinute = 6,
-		ocean = "Warm", island = 1, order = 4, spots = ALL,
-		look = { kind = "fish", shape = "Normal", length = 2.8, body = C(112, 128, 138), belly = C(236, 238, 240), fin = C(80, 92, 104),
-			accent = C(60, 70, 82), tail = "fork", dorsal = "spiny", pattern = "lines", reflect = 0.15 },
+		ocean = "Warm", island = 1, order = 5, spots = ALL,
+		look = { kind = "fish", shape = "Normal", length = 2.8, body = C(96, 112, 92), belly = C(230, 232, 222), fin = C(70, 84, 70),
+			accent = C(50, 62, 52), tail = "fork", dorsal = "spiny", pattern = "lines", reflect = 0.15 },
 	},
 	RedSnapper = {
-		displayName = "Red Snapper", rarity = "Uncommon", sell = 35, perMinute = 8,
-		ocean = "Warm", island = 1, order = 5, spots = ALL,
-		look = { kind = "fish", shape = "Deep", length = 2.6, body = C(225, 75, 70), belly = C(255, 196, 180), fin = C(200, 55, 60),
+		displayName = "Red Snapper", rarity = "Rare", sell = 60, perMinute = 14,
+		ocean = "Warm", island = 1, order = 6, spots = MIDFAR,
+		look = { kind = "fish", shape = "Deep", length = 2.6, body = C(232, 80, 80), belly = C(255, 196, 180), fin = C(215, 60, 70),
 			accent = C(255, 150, 140), tail = "fork", dorsal = "spiny", eye = C(200, 30, 30), reflect = 0.1 },
 	},
 	Pufferfish = {
 		displayName = "Pufferfish", rarity = "Rare", sell = 90, perMinute = 25,
-		ocean = "Warm", island = 1, order = 6, spots = MIDFAR,
-		look = { kind = "puffer", length = 1.9, body = C(230, 196, 92), belly = C(250, 242, 212), fin = C(205, 160, 60),
-			accent = C(120, 90, 40) },
-	},
-	Tuna = {
-		displayName = "Bluefin Tuna", rarity = "Rare", sell = 130, perMinute = 35,
 		ocean = "Warm", island = 1, order = 7, spots = MIDFAR,
-		look = { kind = "fish", shape = "Torpedo", length = 3.4, body = C(30, 52, 100), belly = C(215, 222, 232), fin = C(40, 60, 100),
-			accent = C(250, 210, 50), tail = "lunate", dorsal = "soft", extras = { "Finlets" }, reflect = 0.25 },
+		look = { kind = "puffer", length = 1.9, body = C(214, 196, 110), belly = C(250, 242, 212), fin = C(190, 160, 70),
+			accent = C(110, 90, 45) },
 	},
-	Swordfish = {
-		displayName = "Swordfish", rarity = "Epic", sell = 400, perMinute = 120,
+	Jellyfish = {
+		displayName = "Jellyfish", rarity = "Epic", sell = 350, perMinute = 100,
 		ocean = "Warm", island = 1, order = 8, spots = FAR,
-		look = { kind = "billfish", length = 4.6, body = C(55, 62, 120), belly = C(200, 208, 225), fin = C(40, 45, 90),
-			accent = C(120, 110, 200), reflect = 0.2, glow = true },
+		look = { kind = "jelly", length = 2.3, body = C(225, 140, 255), belly = C(255, 170, 235), fin = C(200, 120, 255),
+			accent = C(255, 210, 250), glow = true },
 	},
-	Hammerhead = {
-		displayName = "Hammerhead Shark", rarity = "Epic", sell = 600, perMinute = 170,
+	Squid = {
+		displayName = "Squid", rarity = "Epic", sell = 500, perMinute = 140,
 		ocean = "Warm", island = 1, order = 9, spots = FAR,
-		look = { kind = "shark", length = 5.0, body = C(120, 130, 140), belly = C(232, 234, 236), fin = C(100, 110, 120),
-			extras = { "Hammer" }, glow = true },
+		look = { kind = "squid", length = 3.2, body = C(200, 70, 50), belly = C(240, 140, 110), fin = C(170, 50, 45),
+			accent = C(120, 30, 40), glow = true },
 	},
-	GoldenMarlin = {
-		displayName = "Golden Marlin", rarity = "Legendary", sell = 2500, perMinute = 800,
+	ReefShark = {
+		displayName = "Reef Shark", rarity = "Legendary", sell = 2500, perMinute = 800,
 		ocean = "Warm", island = 1, order = 10, spots = FAR,
-		look = { kind = "billfish", dorsal = "sail", length = 5.2, body = C(250, 180, 20), belly = C(255, 225, 110), fin = C(230, 140, 10),
-			accent = C(255, 240, 170), reflect = 0.2, metal = true, glow = true },
+		look = { kind = "shark", length = 5.0, body = C(95, 120, 150), belly = C(238, 240, 244), fin = C(80, 105, 135),
+			extras = { "Teeth", "FinTips" }, glow = true },
 	},
 
 	------------------------------------------------------------------------------------------
@@ -182,11 +184,30 @@ local Fish: { [string]: FishDef } = {
 	------------------------------------------------------------------------------------------
 	-- Emekli balıklar (eski kayıtlarda havuzda / teknede kalmış olabilir; artık çıkmaz, kitapta yok)
 	------------------------------------------------------------------------------------------
-	Clownfish = {
-		displayName = "Clownfish", rarity = "Common", sell = 9, perMinute = 2,
-		ocean = "Coral", island = 2, order = 99, spots = ALL, retired = true,
-		look = { kind = "fish", shape = "Round", length = 1.6, body = C(245, 120, 30), belly = C(255, 160, 80), fin = C(30, 30, 30),
-			accent = C(255, 255, 255), tail = "fan", pattern = "bands" },
+	-- 23 Kasım'da Ada 1 listesinden çıkanlar
+	Tuna = {
+		displayName = "Bluefin Tuna", rarity = "Rare", sell = 130, perMinute = 35,
+		ocean = "Warm", island = 1, order = 99, spots = MIDFAR, retired = true,
+		look = { kind = "fish", shape = "Torpedo", length = 3.4, body = C(30, 52, 100), belly = C(215, 222, 232), fin = C(40, 60, 100),
+			accent = C(250, 210, 50), tail = "lunate", dorsal = "soft", extras = { "Finlets" }, reflect = 0.25 },
+	},
+	Swordfish = {
+		displayName = "Swordfish", rarity = "Epic", sell = 400, perMinute = 120,
+		ocean = "Warm", island = 1, order = 99, spots = FAR, retired = true,
+		look = { kind = "billfish", length = 4.6, body = C(55, 62, 120), belly = C(200, 208, 225), fin = C(40, 45, 90),
+			accent = C(120, 110, 200), reflect = 0.2, glow = true },
+	},
+	Hammerhead = {
+		displayName = "Hammerhead Shark", rarity = "Epic", sell = 600, perMinute = 170,
+		ocean = "Warm", island = 1, order = 99, spots = FAR, retired = true,
+		look = { kind = "shark", length = 5.0, body = C(120, 130, 140), belly = C(232, 234, 236), fin = C(100, 110, 120),
+			extras = { "Hammer" }, glow = true },
+	},
+	GoldenMarlin = {
+		displayName = "Golden Marlin", rarity = "Legendary", sell = 2500, perMinute = 800,
+		ocean = "Warm", island = 1, order = 99, spots = FAR, retired = true,
+		look = { kind = "billfish", dorsal = "sail", length = 5.2, body = C(250, 180, 20), belly = C(255, 225, 110), fin = C(230, 140, 10),
+			accent = C(255, 240, 170), reflect = 0.2, metal = true, glow = true },
 	},
 	CoralGrouper = {
 		displayName = "Coral Grouper", rarity = "Epic", sell = 300, perMinute = 50,

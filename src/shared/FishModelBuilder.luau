@@ -216,7 +216,13 @@ local function pattern(ctx, look, center, a, b, c, rng)
 	elseif p == "bands" then
 		for _, t in look.bandsAt or { -0.45, 0.05, 0.55 } do
 			local r = math.sqrt(math.max(1 - t * t, 0))
-			E(ctx, "Band", Vector3.new(a * 2 * r * 1.05, b * 2 * r * 1.05, L * 0.07), CFrame.new(center + Vector3.new(0, 0, c * t)), col)
+			if look.bandEdge then
+				-- koyu kenarlı bant (palyaço balığı): önce geniş koyu halka, üstüne daha dar beyaz
+				E(ctx, "BandEdge", Vector3.new(a * 2 * r * 1.04, b * 2 * r * 1.04, L * 0.11), CFrame.new(center + Vector3.new(0, 0, c * t)), look.bandEdge)
+				E(ctx, "Band", Vector3.new(a * 2 * r * 1.07, b * 2 * r * 1.07, L * 0.07), CFrame.new(center + Vector3.new(0, 0, c * t)), col)
+			else
+				E(ctx, "Band", Vector3.new(a * 2 * r * 1.05, b * 2 * r * 1.05, L * 0.07), CFrame.new(center + Vector3.new(0, 0, c * t)), col)
+			end
 		end
 	elseif p == "patches" then
 		for _ = 1, 10 do
@@ -826,9 +832,24 @@ local function buildShark(ctx, look, rng)
 			EYE(ctx, Vector3.new(s * L * 0.2, H * 0.02, -L * 0.42), H * 0.22, Vector3.new(s, 0, 0), look.eye)
 		end
 	else
-		EYES(ctx, W * 0.35, H * 0.12, -L * 0.33, H * 0.2, look.eye)
+		E(ctx, "Snout", Vector3.new(W * 0.62, H * 0.56, L * 0.2), CFrame.new(0, H * 0.02, -L * 0.42), body)
+		E(ctx, "SnoutUnder", Vector3.new(W * 0.56, H * 0.3, L * 0.18), CFrame.new(0, -H * 0.12, -L * 0.41), look.belly)
+		EYES(ctx, W * 0.36, H * 0.12, -L * 0.36, H * 0.24, look.eye)
 	end
-	E(ctx, "Mouth", Vector3.new(W * 0.55, H * 0.06, L * 0.06), CFrame.new(0, -H * 0.3, -L * 0.33) * CFrame.Angles(rad(-15), 0, 0), INK)
+	if has(look, "Teeth") then
+		-- sevimli sırıtış: yandan görünen koyu ağız + iki sıra beyaz diş
+		E(ctx, "Grin", Vector3.new(W * 0.8, H * 0.16, L * 0.16), CFrame.new(0, -H * 0.2, -L * 0.37) * CFrame.Angles(rad(-8), 0, 0), Color3.fromRGB(120, 30, 40))
+		for _, s in { 1, -1 } do
+			for k = 0, 4 do
+				local z = -L * 0.43 + k * L * 0.03
+				local x = s * W * (0.24 + k * 0.03)
+				ROD(ctx, "Tooth", Vector3.new(x, -H * 0.13, z), Vector3.new(x * 1.02, -H * 0.21, z), L * 0.014, WHITE)
+				ROD(ctx, "Tooth", Vector3.new(x, -H * 0.27, z + L * 0.012), Vector3.new(x * 1.02, -H * 0.2, z + L * 0.012), L * 0.012, WHITE)
+			end
+		end
+	else
+		E(ctx, "Mouth", Vector3.new(W * 0.55, H * 0.06, L * 0.06), CFrame.new(0, -H * 0.3, -L * 0.33) * CFrame.Angles(rad(-15), 0, 0), INK)
+	end
 	-- solungaç yarıkları
 	for _, s in { 1, -1 } do
 		for i = 0, 4 do
@@ -844,6 +865,63 @@ local function buildShark(ctx, look, rng)
 	end
 	E(ctx, "TailUpper", Vector3.new(ctx.thin * 1.4, L * 0.08, L * 0.36), CFrame.new(0, H * 0.45, L * 0.6) * CFrame.Angles(rad(48), 0, 0), fin)
 	E(ctx, "TailLower", Vector3.new(ctx.thin * 1.4, L * 0.06, L * 0.18), CFrame.new(0, -H * 0.22, L * 0.55) * CFrame.Angles(rad(-45), 0, 0), fin)
+	if has(look, "FinTips") then
+		local tip = darker(fin, 0.45)
+		local dorsalCF = CFrame.new(0, H * 0.55, -L * 0.05) * CFrame.Angles(rad(-30), 0, 0)
+		E(ctx, "DorsalTip", Vector3.new(ctx.thin * 1.6, H * 0.42, L * 0.07), dorsalCF * CFrame.new(0, H * 0.62, 0), tip)
+		local tailCF = CFrame.new(0, H * 0.45, L * 0.6) * CFrame.Angles(rad(48), 0, 0)
+		E(ctx, "TailTip", Vector3.new(ctx.thin * 1.6, L * 0.06, L * 0.1), tailCF * CFrame.new(0, 0, L * 0.14), tip)
+	end
+end
+
+---------------------------------------------------------------------------------------------
+-- 12) Mürekkep balığı (kalamar): uzun gövde (manto) arkada, uçta elmas yüzgeçler; önde büyük gözler, 8 kol + 2 uzun dokunaç
+---------------------------------------------------------------------------------------------
+local function buildSquid(ctx, look, rng)
+	local L = ctx.L
+	local body, belly, fin, acc = look.body, look.belly, look.fin, look.accent or darker(look.body, 0.35)
+	-- manto (gövde) + sivri uç
+	E(ctx, "Mantle", Vector3.new(L * 0.24, L * 0.25, L * 0.56), CFrame.new(0, L * 0.02, L * 0.14), body)
+	E(ctx, "MantleTip", Vector3.new(L * 0.15, L * 0.15, L * 0.3), CFrame.new(0, L * 0.02, L * 0.38), body)
+	E(ctx, "MantleBelly", Vector3.new(L * 0.22, L * 0.12, L * 0.5), CFrame.new(0, -L * 0.06, L * 0.12), belly)
+	-- kromatofor benekleri
+	for _ = 1, 22 do
+		DECAL(ctx, "Spot", Vector3.new(0, L * 0.02, L * 0.14), L * 0.12, L * 0.125, L * 0.28, rad(rng:NextNumber(10, 170)), rng:NextNumber(-0.6, 0.8), L * 0.03, L * 0.03, acc)
+	end
+	-- uçta elmas şeklinde iki yüzgeç
+	for _, s in { 1, -1 } do
+		E(ctx, "Fin", Vector3.new(L * 0.26, ctx.thin * 1.4, L * 0.24), CFrame.new(s * L * 0.11, L * 0.03, L * 0.42) * CFrame.Angles(0, s * rad(40), 0), fin, { transparency = 0.05 })
+	end
+	-- baş + büyük gözler
+	E(ctx, "Head", Vector3.new(L * 0.21, L * 0.2, L * 0.17), CFrame.new(0, L * 0.01, -L * 0.17), body)
+	EYES(ctx, L * 0.1, L * 0.04, -L * 0.18, L * 0.11, look.eye)
+	-- 8 kol (öne doğru, hafif açılarak) + vantuzlar
+	for k = 0, 7 do
+		local a = k / 8 * math.pi * 2 + math.pi / 8
+		local off = Vector3.new(math.cos(a), math.sin(a), 0)
+		local prev = Vector3.new(off.X * L * 0.06, off.Y * L * 0.06 + L * 0.0, -L * 0.24)
+		for i = 1, 7 do
+			local t = i / 7
+			local p = Vector3.new(off.X * L * (0.06 + t * 0.09), off.Y * L * (0.06 + t * 0.08) - t * t * L * 0.04 + math.sin(t * 4 + k) * L * 0.015, -L * (0.24 + t * 0.32))
+			local r = L * 0.034 * (1 - t * 0.75)
+			SEG(ctx, "Arm", prev, p, r * 2, r * 2, i % 2 == 0 and body or darker(body, 0.08))
+			if i % 2 == 1 then
+				BALL(ctx, "Sucker", r * 0.8, (prev + p) / 2 - off * r * 0.8, belly)
+			end
+			prev = p
+		end
+	end
+	-- 2 uzun av dokunacı (uçları yassı "kepçe")
+	for _, s in { 1, -1 } do
+		local prev = Vector3.new(s * L * 0.04, -L * 0.03, -L * 0.24)
+		for i = 1, 9 do
+			local t = i / 9
+			local p = Vector3.new(s * L * (0.04 + t * 0.1), -L * 0.03 - math.sin(t * math.pi) * L * 0.08, -L * (0.24 + t * 0.5))
+			SEG(ctx, "Tentacle", prev, p, L * 0.022, L * 0.022, body)
+			prev = p
+		end
+		E(ctx, "Club", Vector3.new(L * 0.07, L * 0.035, L * 0.12), CFrame.new(prev + Vector3.new(0, 0, -L * 0.04)), darker(body, 0.1))
+	end
 end
 
 local BUILDERS = {
@@ -855,6 +933,7 @@ local BUILDERS = {
 	jelly = buildJelly,
 	eel = buildEel,
 	octopus = buildOctopus,
+	squid = buildSquid,
 	angler = buildAngler,
 	billfish = buildBillfish,
 	shark = buildShark,

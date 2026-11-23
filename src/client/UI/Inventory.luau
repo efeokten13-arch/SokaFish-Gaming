@@ -27,7 +27,6 @@ local Theme = require(script.Parent:WaitForChild("Theme"))
 local Inventory = {}
 
 local TOGGLE_KEY = Enum.KeyCode.G
-local MARKET_RANGE = 24 -- çantanın kendiliğinden açıldığı mesafe (server 45'e kadar kabul eder)
 local POOL_RANGE = 60
 
 local BG = Color3.fromRGB(18, 30, 46)
@@ -124,10 +123,14 @@ local function detectPlace()
 	if not root then
 		return "none"
 	end
+	-- pazar: "SELL FISH" plakasının üstünde mi? (plakayı SellService koyar)
 	local market = Workspace:FindFirstChild("FishMarket")
-	for _, d in market and market:GetDescendants() or {} do
-		if d.Name == "SellCounter" and d:IsA("BasePart") and (d.Position - root.Position).Magnitude < MARKET_RANGE then
-			return "market"
+	for _, d in market and market:GetChildren() or {} do
+		if d.Name == "SellPad" and d:IsA("BasePart") then
+			local lp = d.CFrame:PointToObjectSpace(root.Position)
+			if math.abs(lp.X) < d.Size.X / 2 + 1.2 and math.abs(lp.Z) < d.Size.Z / 2 + 0.8 and lp.Y > -1 and lp.Y < 7 then
+				return "market"
+			end
 		end
 	end
 	local pool = myPool()

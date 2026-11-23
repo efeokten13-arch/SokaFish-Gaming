@@ -1,5 +1,5 @@
 --!strict
--- Kıyıdaki balık pazarının SellCounter'ları: tekne deposundaki balıkları sat.
+-- Balık pazarı: tezgahların önündeki SELL FISH plakasına basınca client çantayı açar; satış buradan (SellFish).
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local Workspace = game:GetService("Workspace")
 local Fish = require(ReplicatedStorage:WaitForChild("Shared"):WaitForChild("Config"):WaitForChild("Fish"))
@@ -94,19 +94,73 @@ local function sellSelected(player: Player, slots: any)
 	DataService.Push(player)
 end
 
+-- Tezgahın önündeki zemine parlayan "SELL FISH" plakası. Oyuncu üstüne basınca client çantayı açar (Inventory.luau).
+-- (Eskiden "Sell all fish" basılı tutma düğmesi vardı; yanlışlıkla her şeyi sattığı için kaldırıldı.)
 local function hook(counter: Instance)
-	if not counter:IsA("BasePart") or counter.Name ~= "SellCounter" or counter:FindFirstChild("SellPrompt") then
+	if not counter:IsA("BasePart") or counter.Name ~= "SellCounter" or counter:GetAttribute("HasPad") then
 		return
 	end
-	local prompt = Instance.new("ProximityPrompt")
-	prompt.Name = "SellPrompt"
-	prompt.ActionText = "Sell all fish"
-	prompt.ObjectText = "Fish Market"
-	prompt.HoldDuration = 0.4
-	prompt.MaxActivationDistance = 12
-	prompt.RequiresLineOfSight = false
-	prompt.Parent = counter
-	prompt.Triggered:Connect(sellAll)
+	counter:SetAttribute("HasPad", true)
+	local old = counter:FindFirstChild("SellPrompt")
+	if old then
+		old:Destroy()
+	end
+	local market = counter:FindFirstAncestor("FishMarket") or counter.Parent
+	local platform = market and market:FindFirstChild("Platform") :: BasePart?
+	-- plaka tezgahın platform kenarına bakan tarafında
+	local center = if platform then platform.Position else counter.Position
+	local dirZ = if counter.Position.Z > center.Z then 1 else -1
+	local topY = if platform then platform.Position.Y + platform.Size.Y / 2 else counter.Position.Y - 4
+	local pos = Vector3.new(counter.Position.X, topY + 0.06, counter.Position.Z + dirZ * 4.2)
+	local function slab(name: string, size: Vector3, y: number, color: Color3, material: Enum.Material): Part
+		local p = Instance.new("Part")
+		p.Name = name
+		p.Anchored = true
+		p.CanCollide = false
+		p.CanQuery = false
+		p.CanTouch = false
+		p.CastShadow = false
+		p.Size = size
+		p.CFrame = CFrame.new(pos + Vector3.new(0, y, 0)) * CFrame.Angles(0, if dirZ > 0 then 0 else math.pi, 0)
+		p.Color = color
+		p.Material = material
+		p.TopSurface = Enum.SurfaceType.Smooth
+		p.Parent = market
+		return p
+	end
+	local rim = slab("SellPadRim", Vector3.new(12, 0.12, 4.6), 0, Color3.fromRGB(255, 196, 60), Enum.Material.Neon)
+	local pad = slab("SellPad", Vector3.new(3.8, 0.14, 11.2), 0.02, Color3.fromRGB(60, 40, 24), Enum.Material.WoodPlanks)
+	-- yazı üst yüzde parçanın Z ekseni boyunca akar: uzun kenarı dünyada X'e çevir, okuyan oyuncu dışarıdan baksın
+	pad.CFrame = CFrame.new(pad.Position) * CFrame.Angles(0, if dirZ > 0 then -math.pi / 2 else math.pi / 2, 0)
+	local g = Instance.new("SurfaceGui")
+	g.Face = Enum.NormalId.Top
+	g.SizingMode = Enum.SurfaceGuiSizingMode.PixelsPerStud
+	g.PixelsPerStud = 40
+	g.LightInfluence = 0
+	g.Parent = pad
+	local t = Instance.new("TextLabel")
+	t.Size = UDim2.fromScale(1, 1)
+	t.BackgroundTransparency = 1
+	t.Text = "💰 SELL FISH"
+	t.TextScaled = true
+	t.Font = Enum.Font.FredokaOne
+	t.TextColor3 = Color3.fromRGB(255, 220, 110)
+	t.Parent = g
+	local light = Instance.new("PointLight")
+	light.Color = Color3.fromRGB(255, 200, 90)
+	light.Range = 10
+	light.Brightness = 1.2
+	light.Parent = rim
+	local sp = Instance.new("ParticleEmitter")
+	sp.Texture = "rbxasset://textures/particles/sparkles_main.dds"
+	sp.Color = ColorSequence.new(Color3.fromRGB(255, 215, 100))
+	sp.LightEmission = 1
+	sp.Size = NumberSequence.new(0.35, 0)
+	sp.Lifetime = NumberRange.new(0.8, 1.4)
+	sp.Rate = 4
+	sp.Speed = NumberRange.new(1, 2)
+	sp.EmissionDirection = Enum.NormalId.Top
+	sp.Parent = rim
 end
 
 -- Kıyıdaki balık pazarı (Workspace.FishMarket): ada tarafında ve iskele tarafında birer SellCounter
