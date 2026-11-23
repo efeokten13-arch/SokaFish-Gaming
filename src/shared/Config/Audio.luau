@@ -49,6 +49,7 @@ return {
 	ChestOpen = "rbxassetid://9120881884", -- kapak açılma gıcırtısı
 	ChestFanfare = "rbxassetid://1840076509", -- yeşil / mavi ödül: kısa neşeli müzik
 	ChestFanfareBig = "rbxassetid://9041792228", -- mor / sarı ödül: büyük müzik
+	Whoosh = "rbxassetid://9120718279", -- kamera kırbaç zoom (Pro Sound Effects)
 	RewardPop = "rbxassetid://109359226723492", -- her ödül kartı çıkınca "pop"
 	GateCreak = "rbxassetid://9120839599", -- ahşap kapı gıcırtısı (yavaş çalınır = dev kapı)
 	ChainRattle = "rbxassetid://9116791182", -- vinç zinciri şıngırtısı

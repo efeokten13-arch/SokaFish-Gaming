@@ -14,8 +14,8 @@ local DataService = require(script.Parent.Parent.Data.DataService)
 local Remotes = require(ReplicatedStorage.Shared:WaitForChild("Remotes"))
 local Loot = require(script.Parent.Loot)
 
-local LID_DELAY = 2.45 -- client yakınlaşma + sallanma (LootReveal TIMING.chest zoom+shake = 2.3 sn) bitince kapak açılır
-local PUSH_DELAY = 5.3 -- ödül kartları uçunca para / inci sayacı güncellenir
+local LID_DELAY = 2.15 -- client'ta sandık yere çakılınca (LootReveal TIMING.chest zoom+shake = 2.1 sn) kapak açılır
+local PUSH_DELAY = 6.3 -- ödül kartları uçunca para / inci sayacı güncellenir
 
 local TreasureService = {}
 
@@ -32,7 +32,7 @@ local function animateLid(model: Model, color: Color3?)
 	-- arka kenar etrafında açılır
 	local hinge = closed * CFrame.new(0, -0.55, 1.55)
 	local open = hinge * CFrame.Angles(math.rad(-100), 0, 0) * hinge:Inverse() * closed
-	TweenService:Create(lid, TweenInfo.new(0.4, Enum.EasingStyle.Back), { CFrame = open }):Play()
+	TweenService:Create(lid, TweenInfo.new(0.25, Enum.EasingStyle.Back), { CFrame = open }):Play()
 	if glow then
 		if color then
 			glow.Color = color

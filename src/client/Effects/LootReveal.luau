@@ -1,9 +1,11 @@
 --!nonstrict
--- Sandık / enkaz açılış sahnesi (sadece açan oyuncu görür):
---   1. Kamera sandığa yakınlaşır (zoom)
---   2. Sandık sallanır, en nadir ödülün renginde ışık huzmeleri ve parıltılar büyür, gerilim sesi yükselir
---   3. Patlama: ekran o renkte parlar, kapak açılır (server, herkes görür), müzik çalar
---   4. Ödül kartları teker teker fırlar (her biri kendi renginde), sonra üstteki altın / inci sayacına uçar
+-- Sandık / enkaz açılış sahnesi, anime tarzı (sadece açan oyuncu görür):
+--   A. Sinema şeritleri + hız çizgileri, kamera kırbaç gibi sandığa yaklaşır
+--   B. Sandık havalanır, titrer, giderek hızlanarak döner; altında büyü çemberi, üstünde renkli alev aurası
+--      ve ışık huzmeleri (renk = en nadir ödül), gerilim sesi yükselir
+--   C. ÇARPMA: sandık yere çakılır, "impact frame" flaşı (beyaz-siyah-renk), gökyüzüne ışık sütunu,
+--      yerde şok dalgası, ağır kamera sarsıntısı, kapak açılır (server, herkes görür)
+--   D. Dev "EPIC!!" / "LEGENDARY!!!" yazısı çarpar, ödül kartları teker teker fırlar ve sayaçlara uçar
 -- Renkler ve ödüller: Config/Items. Server: Treasure/TreasureService (sandık), Treasure/WreckService (enkaz).
 local Players = game:GetService("Players")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
@@ -23,10 +25,10 @@ local Remotes = require(Shared:WaitForChild("Remotes"))
 
 local LootReveal = {}
 
--- süreler (sn). Sandık kapağı server'da 2.45 sn'de açılır (TreasureService LID_DELAY): zoom + shake bundan kısa kalmalı
+-- süreler (sn). zoom + shake = çarpma anı. Sandık kapağını server bu anda açar (TreasureService LID_DELAY = 2.15)
 local TIMING = {
-	chest = { zoom = 0.55, shake = 1.75, dist = 9, height = 4.2 },
-	wreck = { zoom = 0.45, shake = 0.9, dist = 15, height = 7 },
+	chest = { zoom = 0.45, shake = 1.65, dist = 11, height = 4.5 },
+	wreck = { zoom = 0.4, shake = 1.0, dist = 16, height = 7 },
 }
 local CARD_GAP = 0.38 -- kartlar arası
 local HOLD = 1.6 -- son karttan sonra bekleme (dokununca hemen kapanır)
@@ -259,17 +261,17 @@ local function makeCard(parent, reward, index, count)
 end
 
 ---------------------------------------------------------------------------------------------
-local function centerOf(model: Instance): Vector3?
+local function centerOf(model: Instance): (Vector3?, number)
 	if not model or not model.Parent then
-		return nil
+		return nil, 0
 	end
 	if model:IsA("Model") then
 		local cf, size = model:GetBoundingBox()
-		return cf.Position + Vector3.new(0, size.Y * 0.15, 0)
+		return cf.Position, cf.Position.Y - size.Y / 2
 	elseif model:IsA("BasePart") then
-		return model.Position
+		return model.Position, model.Position.Y - model.Size.Y / 2
 	end
-	return nil
+	return nil, 0
 end
 
 local function lockCharacter(on: boolean)
@@ -277,6 +279,25 @@ local function lockCharacter(on: boolean)
 	local hum = char and char:FindFirstChildOfClass("Humanoid")
 	if not hum then
 		return
+	end
+	-- sahne boyunca kendi karakterin görünmez (sadece senin ekranında): sandık tam görünsün.
+	-- Kamera modülü her karede saydamlığı yeniden yazdığı için her karede uygulanır.
+	local function apply(v)
+		for _, d in char:GetDescendants() do
+			if d:IsA("BasePart") or d:IsA("Decal") then
+				d.LocalTransparencyModifier = v
+			end
+		end
+	end
+	if on then
+		RunService:BindToRenderStep("LootRevealHide", Enum.RenderPriority.Camera.Value + 5, function()
+			apply(1)
+		end)
+	else
+		pcall(function()
+			RunService:UnbindFromRenderStep("LootRevealHide")
+		end)
+		apply(0)
 	end
 	if on then
 		hum:SetAttribute("RevealSpeed", hum.WalkSpeed)
@@ -289,8 +310,126 @@ local function lockCharacter(on: boolean)
 	end
 end
 
+local function neon(name, size, cf, color, transparency, shape)
+	local p = Instance.new("Part")
+	p.Name = name
+	p.Anchored = true
+	p.CanCollide = false
+	p.CanQuery = false
+	p.CanTouch = false
+	p.CastShadow = false
+	p.Material = Enum.Material.Neon
+	p.Color = color
+	p.Size = size
+	p.CFrame = cf
+	p.Transparency = transparency or 0
+	if shape then
+		p.Shape = shape
+	end
+	p.Parent = Workspace.CurrentCamera
+	return p
+end
+
+-- Anime hız çizgileri: ekran kenarlarından merkeze doğru titreşen ince beyaz çizgiler
+local function makeSpeedLines(g)
+	local holder = Instance.new("Frame")
+	holder.Name = "SpeedLines"
+	holder.Size = UDim2.fromScale(1, 1)
+	holder.BackgroundTransparency = 1
+	holder.ZIndex = 2
+	holder.Parent = g
+	local lines = {}
+	for i = 1, 46 do
+		local l = Instance.new("Frame")
+		l.AnchorPoint = Vector2.new(0, 0.5)
+		l.BackgroundColor3 = Color3.new(1, 1, 1)
+		l.BorderSizePixel = 0
+		l.BackgroundTransparency = 1
+		l.ZIndex = 2
+		l.Parent = holder
+		table.insert(lines, l)
+	end
+	local power = 0
+	local acc = 0
+	local conn = RunService.RenderStepped:Connect(function(dt)
+		acc += dt
+		if acc < 0.045 then
+			return
+		end
+		acc = 0
+		local vs = Workspace.CurrentCamera.ViewportSize
+		local diag = vs.Magnitude * 0.5
+		for _, l in lines do
+			if power <= 0.01 or math.random() > 0.35 + power * 0.6 then
+				l.BackgroundTransparency = 1
+			else
+				local a = math.random() * math.pi * 2
+				local inner = diag * (0.42 + (1 - power) * 0.35 + math.random() * 0.15)
+				local len = diag * 1.2 - inner
+				l.Size = UDim2.fromOffset(len, 1 + math.random() * (2 + power * 4))
+				l.Position = UDim2.new(0.5, math.cos(a) * inner, 0.5, math.sin(a) * inner)
+				l.Rotation = math.deg(a)
+				l.BackgroundTransparency = 0.15 + math.random() * 0.4
+			end
+		end
+	end)
+	return {
+		set = function(v)
+			power = v
+		end,
+		stop = function()
+			conn:Disconnect()
+			holder:Destroy()
+		end,
+	}
+end
+
+local BANNERS = { Green = "NICE!", Blue = "RARE!", Purple = "EPIC!!", Yellow = "LEGENDARY!!!" }
+
+local function slamBanner(g, top, color)
+	local txt = Instance.new("TextLabel")
+	txt.Name = "Banner"
+	txt.AnchorPoint = Vector2.new(0.5, 0.5)
+	txt.Position = UDim2.fromScale(0.5, 0.3)
+	txt.Size = UDim2.fromOffset(900, 130)
+	txt.BackgroundTransparency = 1
+	txt.Font = Enum.Font.FredokaOne
+	txt.TextScaled = true
+	txt.Text = BANNERS[top] or "TREASURE!"
+	txt.TextColor3 = color
+	txt.Rotation = -7
+	txt.ZIndex = 12
+	local st = Instance.new("UIStroke")
+	st.Thickness = 7
+	st.Color = Color3.fromRGB(15, 10, 25)
+	st.Parent = txt
+	local grad = Instance.new("UIGradient")
+	grad.Color = ColorSequence.new(Color3.new(1, 1, 1), color)
+	grad.Rotation = 90
+	grad.Parent = txt
+	local sc = Instance.new("UIScale")
+	sc.Scale = 3.2
+	sc.Parent = txt
+	txt.TextTransparency = 1
+	txt.Parent = g
+	TweenService:Create(sc, TweenInfo.new(0.28, Enum.EasingStyle.Back, Enum.EasingDirection.Out), { Scale = 1 }):Play()
+	TweenService:Create(txt, TweenInfo.new(0.12), { TextTransparency = 0 }):Play()
+	-- yazı hafifçe titreşir
+	task.spawn(function()
+		local t0 = os.clock()
+		while txt.Parent and os.clock() - t0 < 1.2 do
+			txt.Position = UDim2.new(0.5, (math.random() - 0.5) * 6, 0.3, (math.random() - 0.5) * 6)
+			task.wait(0.03)
+		end
+		if txt.Parent then
+			txt.Position = UDim2.fromScale(0.5, 0.3)
+		end
+	end)
+	return txt
+end
+
 local function run(kind: string, model: Instance, rewards, top: string)
-	local center = centerOf(model)
+	local center, groundY = centerOf(model)
 	if not center or type(rewards) ~= "table" then
 		return
 	end
@@ -306,55 +445,111 @@ local function run(kind: string, model: Instance, rewards, top: string)
 	local startCf = cam.CFrame
 	cam.CameraType = Enum.CameraType.Scriptable
 
-	-- kamera oyuncunun tarafından, sandığa önden bakar
 	local away = if root then (root.Position - center) else (startCf.Position - center)
 	away = Vector3.new(away.X, 0, away.Z)
 	away = if away.Magnitude > 0.1 then away.Unit else Vector3.new(0, 0, 1)
-	local function camAt(dist)
-		return CFrame.lookAt(center + away * dist + Vector3.new(0, T.height * dist / T.dist, 0), center + Vector3.new(0, 0.4, 0))
+	-- kamera oyuncunun omzunun üstünden değil, 40° yandan bakar (karakter sandığı kapatmasın)
+	away = (CFrame.Angles(0, math.rad(40), 0) * CFrame.new(away)).Position
+	local function camAt(dist, lift)
+		local focus = center + Vector3.new(0, lift or 0, 0)
+		return CFrame.lookAt(center + away * dist + Vector3.new(0, T.height * dist / T.dist, 0), focus)
 	end
 
 	local fx = makeFx(center, color, big)
 	local g, flash, vig = makeGui()
 	vig.Color = color
+	local lines = makeSpeedLines(g)
 
-	-- sandığın orijinal konumu (yerel sallanma için)
+	-- sinema şeritleri
+	local bars = {}
+	for i, anchorY in { 0, 1 } do
+		local b = Instance.new("Frame")
+		b.AnchorPoint = Vector2.new(0, anchorY)
+		b.Size = UDim2.fromScale(1, 0.11)
+		b.Position = UDim2.fromScale(0, if anchorY == 0 then -0.11 else 1.11)
+		b.BackgroundColor3 = Color3.new(0, 0, 0)
+		b.BorderSizePixel = 0
+		b.ZIndex = 20
+		b.Parent = g
+		TweenService:Create(b, TweenInfo.new(0.3, Enum.EasingStyle.Quad), { Position = UDim2.fromScale(0, anchorY) }):Play()
+		bars[i] = b
+	end
+
+	-- büyü çemberi: sandığın altında dönen neon halka (iki kat)
+	local circle = {}
+	local R1, R2 = (if kind == "wreck" then 6 else 4.2), (if kind == "wreck" then 4 else 2.8)
+	for i = 1, 24 do
+		table.insert(circle, { part = neon("Rune", Vector3.new(1.1, 0.12, 0.35), CFrame.new(), color, 1), r = R1, a = i / 24 * math.pi * 2, dir = 1 })
+	end
+	for i = 1, 12 do
+		table.insert(circle, { part = neon("Rune", Vector3.new(0.5, 0.12, 0.5), CFrame.new(), Color3.new(1, 1, 1), 1), r = R2, a = i / 12 * math.pi * 2, dir = -1.6 })
+	end
+	local floorY = groundY + 0.15
+
+	-- aura: sandıktan yukarı akan renkli alevler
+	local aura = Instance.new("ParticleEmitter")
+	aura.Texture = "rbxasset://textures/particles/fire_main.dds"
+	aura.Color = ColorSequence.new(color, Color3.new(1, 1, 1))
+	aura.LightEmission = 1
+	aura.Size = NumberSequence.new({ NumberSequenceKeypoint.new(0, 2.2), NumberSequenceKeypoint.new(1, 0) })
+	aura.Transparency = NumberSequence.new({ NumberSequenceKeypoint.new(0, 0.3), NumberSequenceKeypoint.new(1, 1) })
+	aura.Lifetime = NumberRange.new(0.5, 0.9)
+	aura.Speed = NumberRange.new(5, 9)
+	aura.SpreadAngle = Vector2.new(25, 25)
+	aura.EmissionDirection = Enum.NormalId.Top
+	aura.Rate = 0
+	aura.Parent = fx.core
+
 	local isModel = model:IsA("Model")
 	local basePivot = if isModel then model:GetPivot() else nil
+	local liftMax = if kind == "wreck" then 1.6 else 3.2
 
-	-- 1) yakınlaşma + 2) sallanma ve şarj
-	local shakeSound = play(Audio.ChestShake, 0.7, if kind == "wreck" then 0.8 else 1.05)
-	local riser = play(Audio.ChestRiser, 0.55, 1.15)
+	-- A) kırbaç zoom
+	play(Audio.Whoosh, 0.8, 1)
+	local riser = play(Audio.ChestRiser, 0.6, 1.1)
+	local shakeSound = play(Audio.ChestShake, 0.55, 1.2)
 	local t0 = os.clock()
-	local spin = 0
 	local total = T.zoom + T.shake
+	local spin = 0
+	local chestSpin = 0
 	local conn
 	conn = RunService.RenderStepped:Connect(function(dt)
 		local t = os.clock() - t0
 		local z = math.clamp(t / T.zoom, 0, 1)
-		local ez = 1 - (1 - z) ^ 3
-		-- uzaktan (2x) yakına zoom; FOV de daralır
-		local camCf = startCf:Lerp(camAt(T.dist * (2 - ez)), math.clamp(t / 0.35, 0, 1))
+		local ez = 1 - (1 - z) ^ 4
+		local charge = math.clamp((t - T.zoom) / T.shake, 0, 1)
+		local lift = liftMax * (1 - (1 - charge) ^ 2)
+		-- kamera: hızlı yaklaşma, sonra yavaş itme
+		local dist = T.dist * (2.6 - ez * 1.6) * (1 - charge * 0.18)
+		local camCf = startCf:Lerp(camAt(dist, lift * 0.6), math.clamp(t / (T.zoom * 0.8), 0, 1))
 		if z >= 1 then
-			camCf = camAt(T.dist)
+			camCf = camAt(dist, lift * 0.6)
 		end
-		local charge = math.clamp((t - T.zoom * 0.5) / T.shake, 0, 1)
-		cam.FieldOfView = oldFov - ez * 14 - charge * 6
-		-- kamera titremesi şarjla artar
-		local k = charge * charge * 0.18
-		cam.CFrame = camCf * CFrame.Angles((math.random() - 0.5) * k * 0.3, (math.random() - 0.5) * k * 0.3, (math.random() - 0.5) * k)
-		-- sandık sallanır: önce yavaş tıkırtı, sonra sıklaşan sarsıntı
+		local k = charge * charge * 0.35
+		cam.CFrame = camCf * CFrame.Angles((math.random() - 0.5) * k * 0.25, (math.random() - 0.5) * k * 0.25, (math.random() - 0.5) * k * 0.6)
+		cam.FieldOfView = oldFov + 12 - ez * 30 - charge * 6
+		lines.set(if t < T.zoom then 1 - z * 0.6 else 0.25 + charge * 0.75)
+		-- sandık havalanır, titrer ve giderek hızlanarak döner
 		if isModel and basePivot and model.Parent then
-			local amp = 0.04 + charge * 0.22
-			local freq = 12 + charge * 30
-			local wob = math.sin(t * freq) * amp
-			local hop = math.max(0, math.sin(t * freq * 0.5)) * charge * 0.25
-			model:PivotTo(basePivot * CFrame.new(0, hop, 0) * CFrame.Angles(wob * 0.35, 0, wob))
+			chestSpin += dt * (1 + charge * charge * 22)
+			local amp = 0.03 + charge * 0.12
+			local wob = math.sin(t * (20 + charge * 40)) * amp
+			model:PivotTo(basePivot * CFrame.new(0, lift, 0) * CFrame.Angles(wob, chestSpin, wob * 0.7))
 		end
-		spin += dt * (0.6 + charge * 3)
-		updateBeams(fx, charge * 0.75, spin)
-		fx.sparks.Rate = charge * 40
-		vig.Transparency = 1 - charge * 0.55
+		-- büyü çemberi döner ve belirir
+		spin += dt * (0.8 + charge * 5)
+		for _, c in circle do
+			local a = c.a + spin * c.dir
+			local r = c.r * (0.6 + charge * 0.4)
+			c.part.CFrame = CFrame.new(center.X + math.cos(a) * r, floorY, center.Z + math.sin(a) * r) * CFrame.Angles(0, -a, 0)
+			c.part.Transparency = 1 - math.clamp(charge * 1.4, 0, 0.85)
+		end
+		fx.core.CFrame = CFrame.new(center + Vector3.new(0, lift, 0))
+		fx.center = center + Vector3.new(0, lift, 0)
+		updateBeams(fx, charge * 0.55, spin)
+		aura.Rate = charge * 70
+		fx.sparks.Rate = charge * 45
+		vig.Transparency = 1 - charge * 0.6
 		if t >= total then
 			conn:Disconnect()
 		end
@@ -363,38 +558,74 @@ local function run(kind: string, model: Instance, rewards, top: string)
 	if conn.Connected then
 		conn:Disconnect()
 	end
-	if isModel and basePivot and model.Parent then
-		model:PivotTo(basePivot) -- kapağı server açacak: önce yerine koy
+	if riser then
+		riser:Stop()
 	end
 	if shakeSound then
 		shakeSound:Stop()
 	end
-	if riser then
-		riser:Stop()
-	end
 
-	-- 3) patlama
-	play(Audio.ChestOpen, 0.8, 1)
+	-- B) ÇARPMA: sandık yere çakılır (kapağı hemen ardından server açar)
+	if isModel and basePivot and model.Parent then
+		model:PivotTo(basePivot)
+	end
+	fx.center = center
+	fx.core.CFrame = CFrame.new(center)
+	aura.Rate = 0
+	play(Audio.ShipBlastBig, if big then 0.55 else 0.35, 1.1)
+	play(Audio.ChestOpen, 0.9, 1)
 	play(if big then Audio.ChestFanfareBig else Audio.ChestFanfare, 0.55)
-	flash.BackgroundColor3 = color:Lerp(Color3.new(1, 1, 1), 0.55)
-	flash.BackgroundTransparency = 0.15
-	TweenService:Create(flash, TweenInfo.new(0.7, Enum.EasingStyle.Quad), { BackgroundTransparency = 1 }):Play()
-	fx.sparks:Emit(if big then 90 else 50)
-	fx.sparks.Rate = if big then 18 else 8
-	local burstStart = os.clock()
-	local camBase = camAt(T.dist)
+	-- anime "impact frame": beyaz, siyah, renk
+	task.spawn(function()
+		flash.BackgroundTransparency = 0
+		flash.BackgroundColor3 = Color3.new(1, 1, 1)
+		task.wait(0.05)
+		flash.BackgroundColor3 = Color3.new(0, 0, 0)
+		task.wait(0.05)
+		flash.BackgroundColor3 = color
+		flash.BackgroundTransparency = 0.1
+		task.wait(0.04)
+		TweenService:Create(flash, TweenInfo.new(0.6, Enum.EasingStyle.Quad), { BackgroundTransparency = 1 }):Play()
+	end)
+	-- ışık sütunu (gökyüzüne)
+	local pillar = neon("Pillar", Vector3.new(400, 0.5, 0.5), CFrame.new(center.X, groundY + 200, center.Z) * CFrame.Angles(0, 0, math.rad(90)), color, 0.15, Enum.PartType.Cylinder)
+	local pw = if big then 9 else 6
+	TweenService:Create(pillar, TweenInfo.new(0.18, Enum.EasingStyle.Quad), { Size = Vector3.new(400, pw, pw) }):Play()
+	task.delay(0.25, function()
+		TweenService:Create(pillar, TweenInfo.new(1.4, Enum.EasingStyle.Quad, Enum.EasingDirection.In), { Size = Vector3.new(400, 0.2, 0.2), Transparency = 1 }):Play()
+	end)
+	local pillarCore = neon("PillarCore", Vector3.new(400, pw * 0.4, pw * 0.4), pillar.CFrame, Color3.new(1, 1, 1), 0.1, Enum.PartType.Cylinder)
+	TweenService:Create(pillarCore, TweenInfo.new(1.2, Enum.EasingStyle.Quad, Enum.EasingDirection.In), { Size = Vector3.new(400, 0.1, 0.1), Transparency = 1 }):Play()
+	-- şok dalgası (yerde genişleyen halka)
+	for i, sizeTo in { 46, 30 } do
+		local ring = neon("Shockwave", Vector3.new(0.3, 2, 2), CFrame.new(center.X, floorY + 0.1 * i, center.Z) * CFrame.Angles(0, 0, math.rad(90)), if i == 1 then color else Color3.new(1, 1, 1), 0.1, Enum.PartType.Cylinder)
+		TweenService:Create(ring, TweenInfo.new(0.55 + i * 0.1, Enum.EasingStyle.Quart, Enum.EasingDirection.Out), { Size = Vector3.new(0.05, sizeTo, sizeTo), Transparency = 1 }):Play()
+		Debris:AddItem(ring, 1)
+	end
+	fx.sparks:Emit(if big then 130 else 70)
+	fx.sparks.Rate = if big then 20 else 10
+	for _, c in circle do
+		TweenService:Create(c.part, TweenInfo.new(0.5), { Transparency = 1 }):Play()
+	end
+	lines.set(1)
+	local impactAt = os.clock()
+	local camBase = camAt(T.dist * 0.8, 0.5)
 	local conn2 = RunService.RenderStepped:Connect(function(dt)
-		local t = os.clock() - burstStart
-		spin += dt * 1.2
-		local p = 1 - math.clamp(t / 0.5, 0, 1) * 0.25 -- huzmeler patlar sonra biraz söner
-		updateBeams(fx, p, spin)
-		local k = math.max(0, 0.25 - t) * 1.2
-		cam.CFrame = camBase * CFrame.new((math.random() - 0.5) * k, (math.random() - 0.5) * k, 0)
-		cam.FieldOfView = oldFov - 20 + math.clamp(t / 0.4, 0, 1) * 6
+		local t = os.clock() - impactAt
+		spin += dt * 1.5
+		updateBeams(fx, math.max(0.55, 1 - t * 0.4), spin)
+		local k = math.max(0, 0.45 - t) * 2.4
+		cam.CFrame = camBase * CFrame.new((math.random() - 0.5) * k, (math.random() - 0.5) * k, 0) * CFrame.Angles(0, 0, (math.random() - 0.5) * k * 0.05)
+		cam.FieldOfView = oldFov - 26 + math.clamp(t / 0.6, 0, 1) * 12
 	end)
 
-	-- 4) kartlar
-	task.wait(0.35)
+	-- C) büyük nadirlik yazısı
+	task.wait(0.25)
+	local banner = slamBanner(g, top, color)
+	task.wait(0.75)
+	lines.set(0.3)
+
+	-- D) kartlar
 	local cards = {}
 	for i, r in rewards do
 		local card, sc, target = makeCard(g, r, i, #rewards)
@@ -407,6 +638,7 @@ local function run(kind: string, model: Instance, rewards, top: string)
 		table.insert(cards, { card = card, sc = sc, reward = r })
 		task.wait(CARD_GAP)
 	end
+	lines.set(0)
 	local hint = Instance.new("TextLabel")
 	hint.AnchorPoint = Vector2.new(0.5, 0)
 	hint.Position = UDim2.new(0.5, 0, 0.5, 130)
@@ -420,7 +652,6 @@ local function run(kind: string, model: Instance, rewards, top: string)
 	hint.ZIndex = 9
 	hint.Parent = g
 
-	-- dokununca veya süre dolunca topla
 	local done = false
 	local tapConn = UserInputService.InputBegan:Connect(function(input)
 		if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch
@@ -434,17 +665,26 @@ local function run(kind: string, model: Instance, rewards, top: string)
 	end
 	tapConn:Disconnect()
 	hint:Destroy()
+	TweenService:Create(banner, TweenInfo.new(0.25), { TextTransparency = 1 }):Play()
 
-	-- kartlar üstteki sayaçlara uçar (altın / inci üst ortada), malzemeler çantaya (sol)
+	-- kartlar üstteki sayaçlara (altın / inci) veya dümendeki çantaya (malzemeler) uçar
 	for _, c in cards do
-		local toTop = c.reward.id == "Gold" or c.reward.id == "Pearl"
-		local dest = if toTop then UDim2.new(0.5, if c.reward.id == "Gold" then -110 else 20, 0, 24) else UDim2.new(0, 40, 0.5, -35)
+		local dest
+		if c.reward.id == "Gold" then
+			dest = UDim2.new(0.5, -70, 0, 24)
+		elseif c.reward.id == "Pearl" then
+			dest = UDim2.new(0.5, 70, 0, 24)
+		else
+			dest = UDim2.new(0.5, 60, 1, -110)
+		end
 		TweenService:Create(c.card, TweenInfo.new(0.45, Enum.EasingStyle.Back, Enum.EasingDirection.In), { Position = dest }):Play()
 		TweenService:Create(c.sc, TweenInfo.new(0.45, Enum.EasingStyle.Quad, Enum.EasingDirection.In), { Scale = 0.15 }):Play()
 		task.wait(0.07)
 	end
-	-- kamera karaktere döner
 	conn2:Disconnect()
+	for _, b in bars do
+		TweenService:Create(b, TweenInfo.new(0.35), { BackgroundTransparency = 1 }):Play()
+	end
 	local back = TweenService:Create(cam, TweenInfo.new(0.55, Enum.EasingStyle.Quad, Enum.EasingDirection.InOut), { CFrame = startCf, FieldOfView = oldFov })
 	back:Play()
 	TweenService:Create(fx.light, TweenInfo.new(0.5), { Brightness = 0 }):Play()
@@ -458,7 +698,13 @@ local function run(kind: string, model: Instance, rewards, top: string)
 	cam.FieldOfView = oldFov
 	lockCharacter(false)
 	player:SetAttribute("InCutscene", false)
+	lines.stop()
 	g:Destroy()
+	for _, c in circle do
+		c.part:Destroy()
+	end
+	pillar:Destroy()
+	pillarCore:Destroy()
 	task.delay(1.2, function()
 		fx.folder:Destroy()
 	end)

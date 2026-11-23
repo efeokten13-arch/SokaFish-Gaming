@@ -16,7 +16,7 @@ local WreckService = {}
 
 local WATER_Y = -0.6 -- 2. adada su yüzeyi
 local WRECK_NAMES = { Shipwreck = true, BigShipwreck = true }
-local PUSH_DELAY = 4.0
+local PUSH_DELAY = 5.0
 
 local used: { [Player]: { [Instance]: number } } = {}
 
