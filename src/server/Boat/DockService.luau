@@ -151,6 +151,11 @@ local function ladder(parent: Instance, edge: Vector3, out: Vector3, axis: Vecto
 		part(m, "Rung", Vector3.new(1.9, 0.22, 0.22), CFrame.fromMatrix(Vector3.new(railPos.X, y, railPos.Z), axis, Vector3.yAxis), WOOD)
 		y -= 1.4
 	end
+	-- Sudaki oyuncu "yüzme" halindeyken Roblox tırmanmaya geçmez; client (Boat/DockClient) bu bilgilerle
+	-- oyuncuyu merdivenden yukarı çıkarır.
+	m:SetAttribute("Edge", Vector3.new(edge.X, 0, edge.Z))
+	m:SetAttribute("Out", out)
+	m:SetAttribute("Top", top)
 	m.Parent = parent
 end
 
@@ -260,6 +265,43 @@ local function board(player: Player, j: Jetty, at: Vector3)
 	busy[player] = nil
 end
 
+-- Teknedeyken "⚓ Dock here": tekne iskelenin yanına yanaşır, oyuncu iskeleye iner
+local function dock(player: Player, j: Jetty, at: Vector3)
+	if busy[player] then
+		return
+	end
+	local char = player.Character
+	local hum = char and char:FindFirstChildOfClass("Humanoid")
+	local boat = findBoat(player)
+	local seat = hum and hum.SeatPart
+	if not hum or not boat or not seat or not seat:IsDescendantOf(boat) then
+		return
+	end
+	local cf = berthFor(j, at, boat, player)
+	if not cf then
+		DataService.Notify(player, "No room to dock here. Try another spot on the dock.", RED)
+		return
+	end
+	busy[player] = true
+	local weld = seat:FindFirstChild("SeatWeld")
+	if weld then
+		weld:Destroy()
+	end
+	hum.Sit = false
+	task.wait(0.1)
+	boat:PivotTo(cf)
+	if boat.PrimaryPart then
+		boat.PrimaryPart.AssemblyLinearVelocity = Vector3.zero
+		boat.PrimaryPart.AssemblyAngularVelocity = Vector3.zero
+	end
+	if char and char.Parent then
+		char:PivotTo(CFrame.lookAt(Vector3.new(at.X, j.top + 3, at.Z), Vector3.new(cf.Position.X, j.top + 3, cf.Position.Z)))
+	end
+	DataService.Notify(player, "⚓ Docked! Press B on the dock to board again.", Color3.fromRGB(150, 230, 255))
+	task.wait(1)
+	busy[player] = nil
+end
+
 local function buildBoardPoints(j: Jetty, folder: Folder)
 	-- iki yanından biri su olmalı
 	local reach = j.width / 2 + 6
@@ -281,6 +323,19 @@ local function buildBoardPoints(j: Jetty, folder: Folder)
 			prompt.Parent = anchor
 			prompt.Triggered:Connect(function(player)
 				board(player, j, c)
+			end)
+			-- teknedeyken görünür (client gizler/gösterir: Boat/DockClient); tekne iskeleden uzakta durduğu için mesafe büyük
+			local dockPrompt = Instance.new("ProximityPrompt")
+			dockPrompt.Name = "DockPrompt"
+			dockPrompt.ActionText = "⚓ Dock here"
+			dockPrompt.ObjectText = "Dock"
+			dockPrompt.KeyboardKeyCode = Enum.KeyCode.E -- teknedeyken Steer düğmesi kapalı, E boşta
+			dockPrompt.HoldDuration = 0
+			dockPrompt.MaxActivationDistance = 40
+			dockPrompt.RequiresLineOfSight = false
+			dockPrompt.Parent = anchor
+			dockPrompt.Triggered:Connect(function(player)
+				dock(player, j, c)
 			end)
 		end
 	end
