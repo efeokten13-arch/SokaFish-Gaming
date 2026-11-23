@@ -32,6 +32,7 @@ type Jetty = { part: BasePart, axis: Vector3, side: Vector3, length: number, wid
 
 local extras: Folder
 local busy: { [Player]: boolean } = {}
+local allPoints: { { j: Jetty, c: Vector3 } } = {} -- tüm iskele noktaları (yer yoksa yakındakilere bakılır)
 
 local function flat(v: Vector3): Vector3
 	local f = Vector3.new(v.X, 0, v.Z)
@@ -196,27 +197,105 @@ local function blocked(cf: CFrame, size: Vector3, ignore: { Instance }): boolean
 	return false
 end
 
--- İskelenin yanında tekne için boş ve sulu bir yer bul
-local function berthFor(j: Jetty, at: Vector3, boat: Model, player: Player): CFrame?
-	local size = boat:GetExtentsSize()
-	local halfW, halfL = math.min(size.X, size.Z) / 2, math.max(size.X, size.Z) / 2
+-- Teknenin su hizasındaki gövdesinin yarı eni / yarı boyu (direk ve yelkenler sayılmaz).
+-- Teknenin kendi ekseninde ölçülür (ileri = pivotun LookVector'ü). Bir kez hesaplanıp teknede saklanır.
+local function footprint(boat: Model): (number, number)
+	local w, l = boat:GetAttribute("FootW") :: number?, boat:GetAttribute("FootL") :: number?
+	if w and l then
+		return w, l
+	end
+	local pivot = boat:GetPivot()
+	local maxX, maxZ = 2, 4
+	for _, p in boat:GetDescendants() do
+		if p:IsA("BasePart") and p.CanCollide and p.Position.Y < pivot.Position.Y + 5 then
+			local h = p.Size / 2
+			for _, sx in { -1, 1 } do
+				for _, sz in { -1, 1 } do
+					local c = pivot:PointToObjectSpace(p.CFrame:PointToWorldSpace(Vector3.new(h.X * sx, 0, h.Z * sz)))
+					maxX = math.max(maxX, math.abs(c.X))
+					maxZ = math.max(maxZ, math.abs(c.Z))
+				end
+			end
+		end
+	end
+	boat:SetAttribute("FootW", maxX)
+	boat:SetAttribute("FootL", maxZ)
+	return maxX, maxZ
+end
+
+-- Çarpışma kontrolünde sayılmayacaklar: teknenin kendisi, arazi, oyuncular
+local function ignoreList(boat: Model): { Instance }
+	local list: { Instance } = { boat, Workspace.Terrain }
+	for _, p in Players:GetPlayers() do
+		if p.Character then
+			table.insert(list, p.Character)
+		end
+	end
+	return list
+end
+
+-- Bir iskele noktasının çevresinde tekneye uygun yer: suda (burun ve kıç dahil), hiçbir şeye çarpmıyor
+local function tryAt(j: Jetty, at: Vector3, halfW: number, halfL: number, ignore: { Instance }, gaps: { number }): CFrame?
 	-- burun açık denize baksın
 	local fwd = if FishingWater.IsWater(at + j.axis * (halfL + 15)) then j.axis else -j.axis
-	local ignore: { Instance } = { boat, Workspace.Terrain }
-	if player.Character then
-		table.insert(ignore, player.Character)
-	end
-	for _, extra in { 1.5, 6, 12 } do
-		for _, s in { 1, -1 } do
-			local pos = at + j.side * s * (j.width / 2 + halfW + extra)
-			local cf = CFrame.lookAt(Vector3.new(pos.X, WATER_Y, pos.Z), Vector3.new(pos.X, WATER_Y, pos.Z) + fwd)
-			local box = CFrame.new(pos.X, WATER_Y + size.Y / 2, pos.Z) * cf.Rotation
-			if FishingWater.IsWater(pos) and not blocked(box, Vector3.new(halfW * 2, size.Y, halfL * 2), ignore) then
-				return cf
+	for _, gap in gaps do
+		for _, along in { 0, 10, -10, 20, -20 } do
+			for _, s in { 1, -1 } do
+				local pos = at + j.axis * along + j.side * s * (j.width / 2 + halfW + gap)
+				if FishingWater.IsWater(pos) and FishingWater.IsWater(pos + fwd * halfL) and FishingWater.IsWater(pos - fwd * halfL) then
+					local cf = CFrame.lookAt(Vector3.new(pos.X, WATER_Y, pos.Z), Vector3.new(pos.X, WATER_Y, pos.Z) + fwd)
+					-- sadece su hizası (-1.25 .. 4.75): iskele güvertesinin altında kalır, direkler hesaba girmez
+					local box = CFrame.new(pos.X, 1.75, pos.Z) * cf.Rotation
+					if not blocked(box, Vector3.new(halfW * 2 + 1, 6, halfL * 2 + 1), ignore) then
+						return cf
+					end
+				end
 			end
 		end
 	end
 	return nil
+end
+
+-- İskelenin yanında yer bul: önce basılan nokta, sonra yakındaki diğer iskele noktaları (en yakından başlayarak).
+-- Dönüş: teknenin yeri ve oyuncunun ineceği iskele noktası
+local function berthFor(j: Jetty, at: Vector3, boat: Model): (CFrame?, Jetty, Vector3)
+	local halfW, halfL = footprint(boat)
+	local ignore = ignoreList(boat)
+	local gaps = { 1.5, 5, 10 }
+	local cf = tryAt(j, at, halfW, halfL, ignore, gaps)
+	if cf then
+		return cf, j, at
+	end
+	local near = {}
+	for _, p in allPoints do
+		local d = (p.c - at).Magnitude
+		if d > 1 and d < 150 then
+			table.insert(near, { p = p, d = d })
+		end
+	end
+	table.sort(near, function(a, b)
+		return a.d < b.d
+	end)
+	for _, n in near do
+		cf = tryAt(n.p.j, n.p.c, halfW, halfL, ignore, gaps)
+		if cf then
+			return cf, n.p.j, n.p.c
+		end
+	end
+	return nil, j, at
+end
+
+-- Yanaşacak yer yoksa: iskeleden biraz açıkta boş bir yer (sergideki teknelerin içine değil)
+local function openWaterSpot(j: Jetty, at: Vector3, boat: Model): CFrame?
+	local halfW, halfL = footprint(boat)
+	return tryAt(j, at, halfW, halfL, ignoreList(boat), { 20, 35, 55, 80 })
+end
+
+local function stop(boat: Model)
+	if boat.PrimaryPart then
+		boat.PrimaryPart.AssemblyLinearVelocity = Vector3.zero
+		boat.PrimaryPart.AssemblyAngularVelocity = Vector3.zero
+	end
 end
 
 local function board(player: Player, j: Jetty, at: Vector3)
@@ -234,26 +313,36 @@ local function board(player: Player, j: Jetty, at: Vector3)
 		return
 	end
 	busy[player] = true
-	-- teknesi yoksa yarat / varsa getir (önce iskeleden uzağa; sonra yanına tam yerleştir)
-	local away = at + j.side * (j.width / 2 + 40)
-	BoatService.BringTo(player, CFrame.new(away.X, WATER_Y, away.Z))
+	-- teknesi denizde yoksa önce iskeleden uzakta (boş suda) yarat; sonra yanına yerleştir
 	local boat = findBoat(player)
-	local t = 0
-	while not boat and t < 2 do
-		t += task.wait(0.1)
-		boat = findBoat(player)
+	if not boat then
+		local spawnAt = at + j.side * 150
+		for _, s in { 1, -1 } do
+			local p = at + j.side * s * 150
+			if FishingWater.IsWater(p) then
+				spawnAt = p
+				break
+			end
+		end
+		BoatService.BringTo(player, CFrame.new(spawnAt.X, WATER_Y, spawnAt.Z))
+		local t = 0
+		while not boat and t < 2 do
+			t += task.wait(0.1)
+			boat = findBoat(player)
+		end
 	end
 	if boat then
-		local cf = berthFor(j, at, boat, player)
+		local seated = boat:FindFirstChildWhichIsA("VehicleSeat", true)
+		if seated and seated.Occupant then
+			seated.Occupant.Sit = false -- başkası oturuyorsa kaldır (zaten sadece sahibi oturabilir)
+		end
+		local cf = berthFor(j, at, boat) or openWaterSpot(j, at, boat)
 		if cf then
 			boat:PivotTo(cf)
 		else
-			DataService.Notify(player, "No room here, your boat is waiting a bit further out.", RED)
+			DataService.Notify(player, "Couldn't bring your boat here, try another dock.", RED)
 		end
-		if boat.PrimaryPart then
-			boat.PrimaryPart.AssemblyLinearVelocity = Vector3.zero
-			boat.PrimaryPart.AssemblyAngularVelocity = Vector3.zero
-		end
+		stop(boat)
 		local seat = boat:FindFirstChildWhichIsA("VehicleSeat", true)
 		if seat and not seat.Occupant and char and char.Parent then
 			char:PivotTo(seat.CFrame + Vector3.new(0, 3, 0))
@@ -277,9 +366,9 @@ local function dock(player: Player, j: Jetty, at: Vector3)
 	if not hum or not boat or not seat or not seat:IsDescendantOf(boat) then
 		return
 	end
-	local cf = berthFor(j, at, boat, player)
+	local cf, landJ, landAt = berthFor(j, at, boat)
 	if not cf then
-		DataService.Notify(player, "No room to dock here. Try another spot on the dock.", RED)
+		DataService.Notify(player, "No room to dock here. Try another dock.", RED)
 		return
 	end
 	busy[player] = true
@@ -290,12 +379,11 @@ local function dock(player: Player, j: Jetty, at: Vector3)
 	hum.Sit = false
 	task.wait(0.1)
 	boat:PivotTo(cf)
-	if boat.PrimaryPart then
-		boat.PrimaryPart.AssemblyLinearVelocity = Vector3.zero
-		boat.PrimaryPart.AssemblyAngularVelocity = Vector3.zero
-	end
+	stop(boat)
+	-- oyuncu, teknenin yanaştığı iskele noktasına iner
 	if char and char.Parent then
-		char:PivotTo(CFrame.lookAt(Vector3.new(at.X, j.top + 3, at.Z), Vector3.new(cf.Position.X, j.top + 3, cf.Position.Z)))
+		local stand = Vector3.new(landAt.X, landJ.top + 3, landAt.Z)
+		char:PivotTo(CFrame.lookAt(stand, Vector3.new(cf.Position.X, stand.Y, cf.Position.Z)))
 	end
 	DataService.Notify(player, "⚓ Docked! Press B on the dock to board again.", Color3.fromRGB(150, 230, 255))
 	task.wait(1)
@@ -309,6 +397,7 @@ local function buildBoardPoints(j: Jetty, folder: Folder)
 		return FishingWater.IsWater(c + j.side * reach) or FishingWater.IsWater(c - j.side * reach)
 	end
 	for _, c in pointsAlong(j, BOARD_SPACING, nearWater) do
+		table.insert(allPoints, { j = j, c = c })
 		do
 			local anchor = part(folder, "BoardPoint", Vector3.new(1, 1, 1), CFrame.new(c.X, j.top + 2.5, c.Z), WOOD)
 			anchor.Transparency = 1
@@ -346,6 +435,7 @@ local function build()
 	if old then
 		old:Destroy()
 	end
+	table.clear(allPoints)
 	extras = Instance.new("Folder")
 	extras.Name = "DockExtras"
 	local ladders = Instance.new("Folder")
