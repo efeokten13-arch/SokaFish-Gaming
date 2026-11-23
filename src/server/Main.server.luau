@@ -12,6 +12,7 @@ local services = {
 	require(Server.Map.FishermanService),
 	require(Server.Map.MermaidService),
 	require(Server.Boat.BoatService),
+	require(Server.Boat.DockService),
 	require(Server.Economy.SellService),
 	require(Server.Economy.PoolService),
 	require(Server.Map.BookService),
