@@ -673,10 +673,10 @@ function IslandLife.BoatHouse(cfg)
 	local m = Util.fresh("Model", "BoatHouse")
 	local rng = Random.new(cfg.Seed + 760)
 	local g = cfg.GrassY
-	local cx, cz = cfg.Pier.startX - 22, cfg.Pier.walkZ - 19 -- yolun kuzeyinde, açık yüzü yola (güneye) bakar
-	local W, D, H = 22, 14, 9
-	clearDecor(cx, cz, 18)
-	Land.paintRect(cx, cz, W + 6, D + 6, Enum.Material.Ground)
+	local cx, cz = cfg.Pier.startX - 22, cfg.Pier.walkZ - 21 -- yolun kuzeyinde, açık yüzü yola (güneye) bakar
+	local W, D, H = 30, 20, 11
+	clearDecor(cx, cz, 24)
+	Land.paintRect(cx, cz, W + 8, D + 8, Enum.Material.Ground)
 	local y = g + 1
 	Util.part(m, "Foundation", v3(W + 2, 1, D + 2), CFrame.new(cx, g + 0.5, cz), Color3.fromRGB(130, 126, 120), Enum.Material.Cobblestone)
 	Util.part(m, "Floor", v3(W, 0.3, D), CFrame.new(cx, y + 0.15, cz), Color3.fromRGB(128, 96, 66), Enum.Material.WoodPlanks)
@@ -697,7 +697,7 @@ function IslandLife.BoatHouse(cfg)
 	end
 	Util.part(m, "FrontBeam", v3(W + 1.5, 1, 1.3), CFrame.new(cx, y + H, cz + D / 2), DARK, Enum.Material.Wood)
 	-- çatı: tek eğim, öne 2 stud saçak + kirişler
-	local rise = 4
+	local rise = 5
 	local len = math.sqrt((D + 4) ^ 2 + rise ^ 2)
 	local ang = math.atan2(rise, D + 4)
 	-- arka yüksek, ön alçak
@@ -707,7 +707,7 @@ function IslandLife.BoatHouse(cfg)
 	end
 	-- arka duvarda: dümen, can simitleri, çapraz kürekler
 	Props.shipWheel(m, CFrame.new(cx, y + 5.2, back + 0.5) * CFrame.Angles(0, math.pi, 0), 2.2)
-	for _, sx in { -6.5, 6.5 } do
+	for _, sx in { -10, 10 } do
 		Props.lifeRing(m, CFrame.new(cx + sx, y + 5.5, back + 0.6) * CFrame.Angles(0, math.pi, 0), 1.3)
 	end
 	for _, sx in { -1, 1 } do
@@ -717,25 +717,73 @@ function IslandLife.BoatHouse(cfg)
 	-- yan duvarlarda kürek + halat
 	Props.oar(m, CFrame.new(cx - W / 2 + 0.5, y + 5, cz) * CFrame.Angles(math.rad(90), 0, math.rad(80)), 7)
 	Props.coil(m, CFrame.new(cx + W / 2 - 2.5, y + 0.3, cz - 2), 1)
+	local kx = cx - 8
 	-- tezgahlarda yapımı süren kayık iskeleti (kaburgalar)
 	for _, sz in { -2.5, 2.5 } do
-		Util.part(m, "Trestle", v3(5, 2, 0.6), CFrame.new(cx, y + 1, cz + sz), DARK, Enum.Material.Wood)
+		Util.part(m, "Trestle", v3(5, 2, 0.6), CFrame.new(kx, y + 1, cz + sz), DARK, Enum.Material.Wood)
 	end
-	Props.deco(Util.part(m, "Keel", v3(0.6, 0.6, 11), CFrame.new(cx, y + 2.3, cz), Props.WOOD, Enum.Material.Wood))
+	Props.deco(Util.part(m, "Keel", v3(0.6, 0.6, 11), CFrame.new(kx, y + 2.3, cz), Props.WOOD, Enum.Material.Wood))
 	for k = -2, 2 do
 		for _, sx in { -1, 1 } do
-			Props.deco(Util.part(m, "Rib", v3(0.4, 2.6, 0.4), CFrame.new(cx + sx * 1.4, y + 3.3, cz + k * 2.2) * CFrame.Angles(0, 0, sx * math.rad(30 - math.abs(k) * 4)), Props.WOOD, Enum.Material.Wood))
+			Props.deco(Util.part(m, "Rib", v3(0.4, 2.6, 0.4), CFrame.new(kx + sx * 1.4, y + 3.3, cz + k * 2.2) * CFrame.Angles(0, 0, sx * math.rad(30 - math.abs(k) * 4)), Props.WOOD, Enum.Material.Wood))
 		end
 	end
 	Props.tackleBox(m, CFrame.new(cx - W / 2 + 2.5, y + 0.3, back + 2), Color3.fromRGB(170, 60, 50))
 	Props.bucket(m, CFrame.new(cx + W / 2 - 3, y + 0.3, back + 2))
 	Props.barrel(m, CFrame.new(cx + W / 2 - 2.6, y + 0.3, cz + 2.5), rng)
+	-- tersane ustası NPC: sağ tarafta tezgâhın arkasında, açık yüze (yola) bakar
+	local counterX, counterZ = cx + 6, cz - 1
+	Util.part(m, "Counter", v3(9, 3.4, 2.6), CFrame.new(counterX, y + 1.7, counterZ + 0.0), Color3.fromRGB(96, 70, 48), Enum.Material.WoodPlanks)
+	Util.part(m, "CounterTop", v3(9.6, 0.4, 3.2), CFrame.new(counterX, y + 3.6, counterZ), DARK, Enum.Material.Wood)
+	Props.tackleBox(m, CFrame.new(counterX - 2.6, y + 3.8, counterZ), Color3.fromRGB(60, 100, 140))
+	local tpl = ServerStorage:FindFirstChild("NPCTemplates")
+	local npcT = tpl and tpl:FindFirstChild("BoatMerchant")
+	if npcT then
+		local npc = npcT:Clone()
+		npc.Name = "BoatMerchant"
+		local root = npc:FindFirstChild("HumanoidRootPart")
+		for _, d in npc:GetDescendants() do
+			if d:IsA("BasePart") then
+				d.Anchored = d == root
+				d.CanCollide = false
+			elseif d:IsA("BillboardGui") and d.Parent and d.Parent.Name == "Head" then
+				d:Destroy()
+			end
+		end
+		local _, size = npc:GetBoundingBox()
+		local at = v3(counterX, y + size.Y / 2 + 0.2, counterZ - 3.2)
+		npc:PivotTo(CFrame.lookAt(at, at + v3(0, 0, 10)))
+		local hum = npc:FindFirstChildOfClass("Humanoid")
+		if hum then
+			hum.DisplayDistanceType = Enum.HumanoidDisplayDistanceType.None
+		end
+		npc.Parent = m
+		local head = npc:FindFirstChild("Head") or root
+		if head then
+			Util.billboard(head, "Shipwright Nils", 2.4, 200).MaxDistance = 40
+		end
+	end
+	-- düğme tezgâhın önündeki görünmez noktada (NPC gövdesindeki düğme güvenilir görünmüyor)
+	local promptHost = Util.part(m, "CounterPoint", v3(8, 3, 1), CFrame.new(counterX, y + 3, counterZ + 2))
+	promptHost.Transparency = 1
+	promptHost.CanCollide = false
+	promptHost.CanTouch = false
+	local sp = Instance.new("ProximityPrompt")
+	sp.Name = "ShopPrompt"
+	sp.ObjectText = "Shipwright Nils"
+	sp.ActionText = "Browse Boats"
+	sp.HoldDuration = 0
+	sp.MaxActivationDistance = 14
+	sp.RequiresLineOfSight = false
+	sp.KeyboardKeyCode = Enum.KeyCode.E
+	sp:SetAttribute("Kind", "Boats")
+	sp.Parent = promptHost
 	-- tabela
-	local sign = Util.part(m, "Sign", v3(14, 2.8, 0.5), CFrame.new(cx, y + H + 1.9, cz + D / 2 + 0.6), Color3.fromRGB(40, 90, 120), Enum.Material.WoodPlanks)
-	Props.deco(Util.part(m, "SignFrame", v3(14.8, 3.5, 0.3), sign.CFrame * CFrame.new(0, 0, -0.3), DARK, Enum.Material.Wood))
+	local sign = Util.part(m, "Sign", v3(18, 2.8, 0.5), CFrame.new(cx, y + H + 1.9, cz + D / 2 + 0.6), Color3.fromRGB(40, 90, 120), Enum.Material.WoodPlanks)
+	Props.deco(Util.part(m, "SignFrame", v3(18.8, 3.5, 0.3), sign.CFrame * CFrame.new(0, 0, -0.3), DARK, Enum.Material.Wood))
 	Util.sign(sign, Enum.NormalId.Back, "BOAT SHOP", CREAM).LightInfluence = 0.2
 	for _, sx in { -1, 1 } do
-		Props.lantern(m, CFrame.new(cx + sx * 8.5, y + H - 1.3, cz + D / 2 + 0.8))
+		Props.lantern(m, CFrame.new(cx + sx * 11.5, y + H - 1.3, cz + D / 2 + 0.8))
 	end
 	Util.light(Util.zone(m, "InsideLight", v3(1, 1, 1), CFrame.new(cx, y + H - 1, cz)), 0.8, 20)
 	return m

@@ -208,11 +208,11 @@ function Structures.Pier(cfg)
 			end
 		end
 	end
-	-- omurga (güney ucu karadaki çıkıntıya girer)
-	deckZ("Spine", P.zTop, P.zBottom, P.x, P.width)
+	-- omurga (güney ucu karadaki çıkıntıya girer: 8 stud fazladan, kıyıda boşluk kalmasın)
+	deckZ("Spine", P.zTop - 8, P.zBottom, P.x, P.width)
 	pilings(P.x, P.zTop, P.x, P.zBottom, 12, W2 - 0.6, 0)
 	-- ortadan adaya yürüme yolu
-	deckX("Walkway", P.startX, P.x - W2, P.walkZ, 8)
+	deckX("Walkway", P.startX - 6, P.x - W2, P.walkZ, 8) -- 6 stud karaya gömülür (kıyıda havada kalmasın)
 	pilings(P.startX + 6, P.walkZ, P.x - W2, P.walkZ, 12, 0, 3.4)
 	-- parmaklar: omurgadan adaya doğru (-X)
 	local xIn = P.x - W2

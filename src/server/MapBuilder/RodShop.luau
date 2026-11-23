@@ -136,14 +136,15 @@ local function display(f, cf, rodId)
 	hit.CanCollide = false
 	hit.CanTouch = false
 	local p = Instance.new("ProximityPrompt")
-	p.Name = "BuyPrompt"
+	p.Name = "ShopPrompt" -- basınca client/UI/ShopUI açılır (Kind/Id attribute'ları), alım server'da ShopAction ile
 	p.ObjectText = def.displayName
-	p.ActionText = if def.price > 0 then "Buy " .. money(def.price) else "Take FREE"
-	p.HoldDuration = 0.8 -- yanlışlıkla almasınlar: basılı tutmak gerekir (sahip olunca client 0 yapar)
-	p.MaxActivationDistance = 6
+	p.ActionText = "Inspect"
+	p.HoldDuration = 0
+	p.MaxActivationDistance = 7
 	p.RequiresLineOfSight = false
 	p.KeyboardKeyCode = Enum.KeyCode.E
-	p:SetAttribute("RodId", rodId)
+	p:SetAttribute("Kind", "Rods")
+	p:SetAttribute("Id", rodId)
 	p.Parent = hit
 	return m
 end
@@ -173,7 +174,24 @@ local function merchant(f, cf)
 	npc.Parent = f
 	local head = npc:FindFirstChild("Head") or root
 	if head then
+		for _, d in head:GetChildren() do
+			if d:IsA("BillboardGui") then
+				d:Destroy()
+			end
+		end
 		Util.billboard(head, "Rod Merchant", 2.4, 200).MaxDistance = 40
+	end
+	if root and not root:FindFirstChild("ShopPrompt") then
+		local p = Instance.new("ProximityPrompt")
+		p.Name = "ShopPrompt"
+		p.ObjectText = "Rod Merchant"
+		p.ActionText = "Browse Rods"
+		p.HoldDuration = 0
+		p.MaxActivationDistance = 12
+		p.RequiresLineOfSight = false
+		p.KeyboardKeyCode = Enum.KeyCode.E
+		p:SetAttribute("Kind", "Rods")
+		p.Parent = root
 	end
 	return npc
 end
@@ -303,6 +321,41 @@ function RodShop.Build(cfg)
 	local chim = Util.part(f, "Chimney", Vector3.new(2.6, 6, 2.6), at(W / 2 - 6, F + H + 4.5, D / 4), Color3.fromRGB(130, 120, 112), Enum.Material.Cobblestone)
 	Util.part(f, "ChimneyCap", Vector3.new(3.2, 0.5, 3.2), chim.CFrame * CFrame.new(0, 3.2, 0), Color3.fromRGB(90, 86, 82), Enum.Material.Slate)
 
+
+	-- çatının tepesinde KOCAMAN olta: YAN duruyor (mahya boyunca soldan sağa, ~50° eğik), ucundan dev balık sarkar
+	local ridgeY = F + H + 0.6 + RH + 0.9
+	local tilt = math.rad(52)
+	local function onRoof(len)
+		return at(-15 + len * math.sin(tilt), ridgeY + len * math.cos(tilt), 1.5 - len * 0.08).Position
+	end
+	local basePos = onRoof(0)
+	local midPos = onRoof(17)
+	local tipPos = onRoof(31)
+	Util.rod(f, "GiantRodLower", basePos, midPos, 1.7, Color3.fromRGB(110, 70, 40), Enum.Material.Wood)
+	Util.rod(f, "GiantRodUpper", midPos, tipPos, 0.9, Color3.fromRGB(150, 100, 56), Enum.Material.Wood)
+	Util.rod(f, "GiantRodHandle", basePos, onRoof(6), 2.1, Color3.fromRGB(200, 160, 80), Enum.Material.Wood)
+	for _, len in { 8.5, 14, 20, 26 } do
+		Util.rod(f, "GiantRodRing", onRoof(len), onRoof(len + 0.7), len < 17 and 2.0 or 1.2, Color3.fromRGB(255, 205, 80), Enum.Material.Metal)
+	end
+	-- makara: kapıya bakan yüzünde
+	local axis = (base - base.Position) * CFrame.Angles(0, math.pi / 2, 0)
+	local reelPos = onRoof(9) + base.LookVector * 1.9
+	Util.cyl(f, "GiantReel", 1.6, 4.6, CFrame.new(reelPos) * axis, Color3.fromRGB(190, 190, 200), Enum.Material.Metal)
+	Util.cyl(f, "GiantReelHub", 2.2, 1.6, CFrame.new(reelPos) * axis, Color3.fromRGB(255, 205, 80), Enum.Material.Metal)
+	-- misina: uçtan aşağı, ucunda dev balık
+	local lineEnd = tipPos + Vector3.new(0, -13, 0)
+	Util.rod(f, "GiantLine", tipPos, lineEnd, 0.18, Color3.fromRGB(240, 240, 240), Enum.Material.SmoothPlastic)
+	local fishCF = CFrame.new(lineEnd + Vector3.new(0, -4.2, 0)) * (base - base.Position) * CFrame.Angles(0, 0, math.rad(-80)) -- ağzından asılı: baş yukarı
+	Util.ball(f, "GiantFish", Vector3.new(10, 4.6, 3), fishCF, Color3.fromRGB(240, 130, 50), Enum.Material.SmoothPlastic)
+	Util.ball(f, "GiantFishBelly", Vector3.new(7.4, 2.2, 2.9), fishCF * CFrame.new(0, -0.9, 0.12), Color3.fromRGB(255, 232, 190), Enum.Material.SmoothPlastic)
+	Util.ball(f, "GiantFishTail", Vector3.new(3, 4.6, 0.8), fishCF * CFrame.new(5.6, 0, 0), Color3.fromRGB(230, 100, 40), Enum.Material.SmoothPlastic)
+	Util.ball(f, "GiantFishEye", Vector3.new(0.9, 0.9, 0.5), fishCF * CFrame.new(-3.3, 0.7, -1.4), Color3.fromRGB(20, 20, 20), Enum.Material.SmoothPlastic)
+	for _, d in f:GetChildren() do
+		if d:IsA("BasePart") and d.Name:find("^Giant") then
+			d.CanCollide = false
+		end
+	end
+
 	-- tek tabela: girişin üstünde, çerçeveli, yanlarında asılı fenerler
 	local roofSign = Util.part(f, "RoofSign", Vector3.new(20, 4.5, 0.6), at(0, F + H + 4.2, -D / 2 - 0.4) * CFrame.Angles(math.rad(-12), 0, 0), DARK, Enum.Material.Wood)
 	Util.sign(roofSign, Enum.NormalId.Front, "🎣 ROD SHOP", Color3.fromRGB(255, 215, 90))
@@ -337,17 +390,32 @@ function RodShop.Build(cfg)
 		display(displays, cf, id)
 	end
 
-	-- tezgâh + satıcı (sol önde, odanın ortasına bakar)
-	local cx, cz = -W / 2 + 6, -3
-	Util.part(f, "Counter", Vector3.new(2.6, 3.6, 10), at(cx, F + 1.8, cz), Color3.fromRGB(120, 80, 48), Enum.Material.WoodPlanks)
-	Util.part(f, "CounterTop", Vector3.new(3.2, 0.4, 10.6), at(cx, F + 3.8, cz), DARK, Enum.Material.Wood)
+	-- tezgâh + satıcı: odanın TAM ORTASINDA (x=0, z=0); tezgâh kapıya paralel, satıcı arkasında kapıya bakar
+	local cz = 0
+	Util.part(f, "Counter", Vector3.new(9, 3.6, 2.6), at(0, F + 1.8, cz), Color3.fromRGB(120, 80, 48), Enum.Material.WoodPlanks)
+	Util.part(f, "CounterTop", Vector3.new(9.6, 0.4, 3.2), at(0, F + 3.8, cz), DARK, Enum.Material.Wood)
 	-- yazar kasa
-	Util.part(f, "Register", Vector3.new(1.8, 1.1, 1.6), at(cx, F + 4.55, cz - 2.5), Color3.fromRGB(176, 136, 60), Enum.Material.Metal)
-	Props.deco(Util.part(f, "RegisterTop", Vector3.new(1.6, 0.5, 0.9), at(cx + 0.2, F + 5.3, cz - 2.5) * CFrame.Angles(0, 0, math.rad(-25)), Color3.fromRGB(150, 110, 50), Enum.Material.Metal))
-	Props.deco(Util.part(f, "Keys", Vector3.new(0.9, 0.15, 1.2), at(cx - 0.5, F + 5.15, cz - 2.5) * CFrame.Angles(0, 0, math.rad(15)), Color3.fromRGB(240, 235, 220), Enum.Material.SmoothPlastic))
-	-- olta kutuları, kova
-	Props.tackleBox(f, at(cx, F + 4, cz + 1) * CFrame.Angles(0, math.pi / 2, 0), Color3.fromRGB(60, 120, 80))
-	Props.tackleBox(f, at(cx, F + 4, cz + 3.2) * CFrame.Angles(0, math.pi / 2 + 0.2, 0), Color3.fromRGB(170, 60, 50))
+	Util.part(f, "Register", Vector3.new(1.6, 1.1, 1.8), at(-2.6, F + 4.55, cz), Color3.fromRGB(176, 136, 60), Enum.Material.Metal)
+	Props.deco(Util.part(f, "RegisterTop", Vector3.new(0.9, 0.5, 1.6), at(-2.6, F + 5.3, cz - 0.2) * CFrame.Angles(math.rad(25), 0, 0), Color3.fromRGB(150, 110, 50), Enum.Material.Metal))
+	Props.deco(Util.part(f, "Keys", Vector3.new(1.2, 0.15, 0.9), at(-2.6, F + 5.15, cz - 0.5) * CFrame.Angles(math.rad(-15), 0, 0), Color3.fromRGB(240, 235, 220), Enum.Material.SmoothPlastic))
+	-- olta kutuları
+	Props.tackleBox(f, at(1.4, F + 4, cz), Color3.fromRGB(60, 120, 80))
+	Props.tackleBox(f, at(3.4, F + 4, cz) * CFrame.Angles(0, 0.2, 0), Color3.fromRGB(170, 60, 50))
+	-- tezgâhın ön yüzündeki görünmez düğme: arayüzü açar (satıcıya da aynı düğme konur)
+	local counterPoint = Util.part(f, "CounterPoint", Vector3.new(8, 3, 1), at(0, F + 3, cz - 2.2))
+	counterPoint.Transparency = 1
+	counterPoint.CanCollide = false
+	counterPoint.CanTouch = false
+	local cp = Instance.new("ProximityPrompt")
+	cp.Name = "ShopPrompt"
+	cp.ObjectText = "Rod Merchant"
+	cp.ActionText = "Browse Rods"
+	cp.HoldDuration = 0
+	cp.MaxActivationDistance = 12
+	cp.RequiresLineOfSight = false
+	cp.KeyboardKeyCode = Enum.KeyCode.E
+	cp:SetAttribute("Kind", "Rods")
+	cp.Parent = counterPoint
 	-- köşelerde fıçılar ve olta kovaları
 	local rr = Random.new(7)
 	for _, c in { { -W / 2 + 2.5, -D / 2 + 3 }, { W / 2 - 2.6, -D / 2 + 2.6 } } do
@@ -365,7 +433,7 @@ function RodShop.Build(cfg)
 		local col = ({ Color3.fromRGB(240, 90, 80), Color3.fromRGB(250, 200, 60), Color3.fromRGB(80, 200, 220), Color3.fromRGB(150, 230, 90), Color3.fromRGB(230, 120, 220) })[k + 1]
 		Props.deco(Util.ball(f, "Lure", Vector3.new(0.7, 0.35, 0.35), at(gx - 1.8 + k * 0.9, F + 2.85, gz + (k % 2) * 0.6 - 0.3), col, Enum.Material.SmoothPlastic), false)
 	end
-	merchant(f, at(-W / 2 + 3, F, cz) * CFrame.Angles(0, -math.pi / 2, 0))
+	merchant(f, at(0, F, cz + 3.4)) -- -Z (kapı) yönüne bakar
 
 	return f
 end

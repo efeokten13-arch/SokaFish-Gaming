@@ -189,16 +189,27 @@ local function launch(player: Player, id: string, display: Model)
 	end
 end
 
-local function onPrompt(player: Player, id: string, display: Model)
+-- Mağaza arayüzü (ShopAction -> "Boats"): satın al ("buy") veya denize indir ("sail"). Dönüş: ok, mesaj
+local function showroomDisplay(id: string): Model?
+	local pier = Workspace:FindFirstChild("Pier")
+	local showroom = pier and pier:FindFirstChild("Showroom")
+	local m = showroom and showroom:FindFirstChild(id)
+	return if m and m:IsA("Model") then m else nil
+end
+
+function BoatService.Shop(player: Player, id: string, action: string): (boolean, string)
 	local data = DataService.Get(player)
-	if not data then
-		return
-	end
 	local info = (Boats :: any)[id]
-	if not owns(data, id) then
+	if not data or not info then
+		return false, "Unknown boat"
+	end
+	if action == "buy" then
+		if owns(data, id) then
+			return false, "You already own this boat"
+		end
 		if data.money < info.price then
 			DataService.Notify(player, "You need $" .. info.price .. " for the " .. info.displayName, RED)
-			return
+			return false, "Not enough money"
 		end
 		data.money -= info.price
 		table.insert(data.ownedBoats, id)
@@ -210,11 +221,51 @@ local function onPrompt(player: Player, id: string, display: Model)
 		end
 		-- rehber: tekne alındı -> balık tutma adımı
 		GuideService.Event(player, "boat")
+		return true, "Bought " .. info.displayName
+	elseif action == "sail" then
+		if not owns(data, id) then
+			return false, "Buy it first"
+		end
+		local display = showroomDisplay(id)
+		if not display then
+			return false, "Boat dock not found"
+		end
+		launch(player, id, display)
+		return true, "Sailing " .. info.displayName
 	end
-	launch(player, id, display)
+	return false, "Unknown action"
+end
+
+-- Arayüzdeki 3D önizleme için her teknenin kopyası ReplicatedStorage.BoatPreviews'a konur
+local function buildPreviews()
+	local folderName = "BoatPreviews"
+	local old = ReplicatedStorage:FindFirstChild(folderName)
+	if old then
+		old:Destroy()
+	end
+	local f = Instance.new("Folder")
+	f.Name = folderName
+	for _, id in (Boats :: any).ShopOrder do
+		local ok, model = pcall(function()
+			return BoatModels.Build(id, CFrame.new(0, 3000, 0), true)
+		end)
+		if ok and model then
+			model.Name = id
+			for _, d in model:GetDescendants() do
+				if d:IsA("BasePart") then
+					d.Anchored = true
+				elseif d:IsA("Script") or d:IsA("LocalScript") or d:IsA("ProximityPrompt") then
+					d:Destroy()
+				end
+			end
+			model.Parent = f
+		end
+	end
+	f.Parent = ReplicatedStorage
 end
 
 function BoatService.Init()
+	buildPreviews()
 	task.spawn(function()
 		local pier = Workspace:WaitForChild("Pier", 60)
 		local showroom = pier and pier:WaitForChild("Showroom", 10)
@@ -227,19 +278,17 @@ function BoatService.Init()
 			local info = id and (Boats :: any)[id]
 			local hull = display:IsA("Model") and display.PrimaryPart
 			if info and hull then
+				-- Basınca client mağaza arayüzünü açar (client/UI/ShopUI); alım ShopAction ile server'da
 				local prompt = Instance.new("ProximityPrompt")
-				prompt.Name = "BoatPrompt"
-				prompt:SetAttribute("BoatId", id)
-				-- yazıyı her oyuncu için client/UI/RodShopPrompts ayarlar (Buy / Owned · Sail)
-				prompt.ActionText = "Buy ($" .. info.price .. ") / Sail"
+				prompt.Name = "ShopPrompt"
+				prompt:SetAttribute("Kind", "Boats")
+				prompt:SetAttribute("Id", id)
+				prompt.ActionText = "Browse Boats"
 				prompt.ObjectText = info.displayName
-				prompt.HoldDuration = 0.3
+				prompt.HoldDuration = 0
 				prompt.MaxActivationDistance = 26
 				prompt.RequiresLineOfSight = false
 				prompt.Parent = hull
-				prompt.Triggered:Connect(function(p)
-					onPrompt(p, id :: string, display :: Model)
-				end)
 			end
 		end
 	end)

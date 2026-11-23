@@ -1,9 +1,10 @@
 --!nonstrict
 -- Gemi topları (client): kendi gemindeki bir topun yanına gelince "Aim" ve "Fire" butonları çıkar.
 -- Nişan modu (Sea of Thieves tarzı): kamera topun arkasına geçer, namlunun üstünden denize bakılır.
---   Top fareyle / parmakla kaydırarak / A-D tuşlarıyla döner (en fazla ±25°), gülle yolu sarı noktalarla görünür.
+--   Sağa-sola: fare / parmak / A-D (en fazla ±25°). Yukarı-aşağı: fare / parmak / W-S (Config/Cannons Min/MaxPitch).
+--   Gülle yolu sarı noktalarla, düşeceği yer halka ile görünür. Sağ ortada gülle envanteri (1-2-3 ile seç).
 --   Nişandayken karakter yürümez ve kendi ekranında gizlenir (görüşü kapatmasın).
--- Ateş etme şimdilik kapalı (gemi savaşı sistemiyle eklenecek).
+-- Ateş: server (CannonService) topun gerçekten bu oyuncunun gemisinde ve yanında olduğunu kontrol eder.
 -- Kısayollar: R = nişan aç/kapa, F = ateş.
 local Players = game:GetService("Players")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
@@ -23,7 +24,13 @@ local cannon, hull -- yanındaki top (namlu) ve geminin gövdesi
 local aiming = false
 local gui, aimBtn, fireBtn
 local dots = {}
-local DOTS = 18
+local DOTS = 30
+local landRing -- düşüş noktası halkası
+local ammoPanel, ammoRows, reloadBar = nil, {}, nil
+local ammoId = Cfg.Ammo[1].id
+local lastFire = 0
+local shake = 0
+local fishingGui -- nişandayken "At" (olta) butonu gizlenir
 
 -- nişan kamerası
 local ENTER_TIME = 0.4 -- kameranın topun arkasına geçiş süresi
@@ -32,12 +39,14 @@ local AIM_FOV = 58
 local MOUSE_SENS = 0.0045 -- rad / piksel
 local TOUCH_SENS = 0.007
 local KEY_SPEED = 1.1 -- rad / sn (A-D)
+local PITCH_KEY_SPEED = 0.45 -- rad / sn (W-S)
 local yaw = 0 -- topun şu anki açısı
+local pitch = 0 -- namlunun yukarı açısı (radyan)
 local camT = 0 -- 0..1 giriş animasyonu
 local exitTween: { from: CFrame, t: number, fov: number }? = nil
 local savedFov = 70
 local hint
-local keyLeft, keyRight = false, false
+local keyLeft, keyRight, keyUp, keyDown = false, false, false, false
 
 -- Nişandayken karakter yürümesin/zıplamasın (A-D topu çevirir).
 -- Varsayılan PlayerModule varsa onun kontrolleri kapatılır; yoksa hız geçici olarak sıfırlanır.
@@ -109,11 +118,11 @@ local function nearestCannon()
 	return best, bestHull
 end
 
-local function setYaw(barrel, yaw)
+local function setAim(barrel, yaw, pitch)
 	local w = barrel and barrel:FindFirstChild("Hinge")
 	local base = w and w:GetAttribute("BaseC0")
 	if base then
-		w.C0 = base * CFrame.Angles(0, yaw, 0)
+		w.C0 = base * CFrame.Angles(0, yaw, 0) * CFrame.Angles(0, 0, pitch or 0)
 	end
 end
 
@@ -125,13 +134,19 @@ end
 
 -- Nişan kamerası: namlunun üstünde; namlu ağzı ekranın alt ortasında görünür
 local function aimCameraCF(barrel)
-	local cf = barrelCF(barrel)
+	local w = barrel.Hinge
+	local base = w:GetAttribute("BaseC0") or w.C0
+	-- kamera sadece sağa-sola döner; yukarı-aşağıyı yarısı kadar takip eder (düşüş noktası ekranda kalsın)
+	local cf = hull.CFrame * base * CFrame.Angles(0, yaw, 0) * w.C1:Inverse()
 	-- göz namlunun dış yarısının üstünde: gövde içindeki direk/yelken görüşü kapatmasın
-	local eye = (cf * CFrame.new(0.5, 1.5, 0)).Position
-	local target = (cf * CFrame.new(60, 0.3, 0)).Position
+	local eye = (cf * CFrame.new(0.5, 2.2, 0)).Position
+	local target = (cf * CFrame.new(60, 0.3 + math.tan(pitch * 0.55) * 60, 0)).Position
 	-- hafif dalga sallantısı
 	local t = os.clock()
 	eye += Vector3.new(0, math.sin(t * 1.3) * 0.08, 0)
+	if shake > 0.01 then
+		eye += Vector3.new(math.random() - 0.5, math.random() - 0.5, math.random() - 0.5) * shake
+	end
 	return CFrame.lookAt(eye, target, Vector3.yAxis)
 end
 
@@ -139,24 +154,156 @@ local function hideDots()
 	for _, d in dots do
 		d.Transparency = 1
 	end
+	if landRing then
+		landRing.Transparency = 1
+	end
 end
 
+local pathParams = RaycastParams.new()
+pathParams.FilterType = Enum.RaycastFilterType.Exclude
+pathParams.IgnoreWater = true
 local function showPath(barrel)
 	local w = barrel.Hinge
 	local cf = hull.CFrame * w.C0 * w.C1:Inverse()
 	local pos = (cf * CFrame.new(barrel.Size.X / 2 + 0.8, 0, 0)).Position
 	local vel = cf.RightVector * Cfg.Speed + Vector3.new(0, Cfg.Arc, 0) + hull.AssemblyLinearVelocity
+	pathParams.FilterDescendantsInstances = { hull.Parent, player.Character, Workspace.CurrentCamera }
+	local landed, prev = nil, pos
 	for i = 1, DOTS do
 		local t = i * 0.12
 		local p = pos + vel * t - Vector3.new(0, 0.5 * Cfg.Gravity * t * t, 0)
 		local d = dots[i]
-		if p.Y < 0 then
+		if not landed then
+			local hit = Workspace:Raycast(prev, p - prev, pathParams)
+			if hit then
+				landed = hit.Position
+			elseif p.Y <= 0 then
+				local k = prev.Y / math.max(prev.Y - p.Y, 0.001)
+				landed = prev:Lerp(p, k)
+			end
+		end
+		if landed then
 			d.Transparency = 1
 		else
 			d.Position = p
 			d.Transparency = 0.15
 		end
+		prev = p
 	end
+	if landRing then
+		if landed then
+			landRing.CFrame = CFrame.new(landed + Vector3.new(0, 0.3, 0)) * CFrame.Angles(0, 0, math.pi / 2)
+			landRing.Transparency = 0.25
+		else
+			landRing.Transparency = 1
+		end
+	end
+end
+
+-- Gülle envanteri (sağ orta) ------------------------------------------------------------------------------
+local function refreshAmmo()
+	for _, r in ammoRows do
+		local sel = r.id == ammoId
+		r.stroke.Color = sel and Color3.fromRGB(255, 205, 80) or Color3.fromRGB(80, 84, 100)
+		r.stroke.Thickness = sel and 3 or 1.5
+		r.frame.BackgroundTransparency = sel and 0.05 or 0.3
+	end
+end
+
+local function selectAmmo(i)
+	local a = Cfg.Ammo[i]
+	if not a then
+		return
+	end
+	if a.locked then
+		UIController.Notify(a.name .. " is coming soon!", Color3.fromRGB(255, 214, 80))
+		return
+	end
+	ammoId = a.id
+	refreshAmmo()
+end
+
+local function buildAmmo(parent)
+	ammoPanel = Instance.new("Frame")
+	ammoPanel.Name = "AmmoPanel"
+	ammoPanel.AnchorPoint = Vector2.new(1, 0.5)
+	ammoPanel.Position = UDim2.new(1, -18, 0.42, 0)
+	ammoPanel.Size = UDim2.fromOffset(168, 40 + #Cfg.Ammo * 52 + 20)
+	ammoPanel.BackgroundColor3 = Color3.fromRGB(20, 24, 32)
+	ammoPanel.BackgroundTransparency = 0.25
+	ammoPanel.Visible = false
+	ammoPanel.Parent = parent
+	Instance.new("UICorner", ammoPanel).CornerRadius = UDim.new(0, 12)
+	local head = Instance.new("TextLabel")
+	head.BackgroundTransparency = 1
+	head.Position = UDim2.fromOffset(12, 6)
+	head.Size = UDim2.new(1, -24, 0, 26)
+	head.Font = Enum.Font.FredokaOne
+	head.TextSize = 18
+	head.TextXAlignment = Enum.TextXAlignment.Left
+	head.TextColor3 = Color3.fromRGB(255, 205, 80)
+	head.Text = "AMMO"
+	head.Parent = ammoPanel
+	for i, a in Cfg.Ammo do
+		local row = Instance.new("TextButton")
+		row.AutoButtonColor = true
+		row.Text = ""
+		row.Position = UDim2.fromOffset(8, 36 + (i - 1) * 52)
+		row.Size = UDim2.new(1, -16, 0, 46)
+		row.BackgroundColor3 = Color3.fromRGB(34, 40, 54)
+		row.Parent = ammoPanel
+		Instance.new("UICorner", row).CornerRadius = UDim.new(0, 10)
+		local st = Instance.new("UIStroke")
+		st.ApplyStrokeMode = Enum.ApplyStrokeMode.Border
+		st.Parent = row
+		local icon = Instance.new("TextLabel")
+		icon.BackgroundTransparency = 1
+		icon.Position = UDim2.fromOffset(6, 4)
+		icon.Size = UDim2.fromOffset(36, 38)
+		icon.TextScaled = true
+		icon.Text = a.icon
+		icon.TextTransparency = a.locked and 0.55 or 0
+		icon.Parent = row
+		local name = Instance.new("TextLabel")
+		name.BackgroundTransparency = 1
+		name.Position = UDim2.fromOffset(46, 4)
+		name.Size = UDim2.new(1, -52, 0, 20)
+		name.Font = Enum.Font.GothamBold
+		name.TextSize = 13
+		name.TextXAlignment = Enum.TextXAlignment.Left
+		name.TextColor3 = a.locked and Color3.fromRGB(140, 140, 150) or Color3.new(1, 1, 1)
+		name.Text = i .. "  " .. a.name
+		name.Parent = row
+		local note = Instance.new("TextLabel")
+		note.BackgroundTransparency = 1
+		note.Position = UDim2.fromOffset(46, 24)
+		note.Size = UDim2.new(1, -52, 0, 18)
+		note.Font = Enum.Font.GothamMedium
+		note.TextSize = 13
+		note.TextXAlignment = Enum.TextXAlignment.Left
+		note.TextColor3 = a.locked and Color3.fromRGB(150, 150, 160) or Color3.fromRGB(255, 205, 80)
+		note.Text = a.locked and ("🔒 " .. a.note) or a.note
+		note.Parent = row
+		row.Activated:Connect(function()
+			selectAmmo(i)
+		end)
+		table.insert(ammoRows, { id = a.id, frame = row, stroke = st })
+	end
+	-- dolum çubuğu
+	local back = Instance.new("Frame")
+	back.Position = UDim2.new(0, 10, 1, -14)
+	back.Size = UDim2.new(1, -20, 0, 6)
+	back.BackgroundColor3 = Color3.fromRGB(50, 54, 66)
+	back.BorderSizePixel = 0
+	back.Parent = ammoPanel
+	Instance.new("UICorner", back).CornerRadius = UDim.new(1, 0)
+	reloadBar = Instance.new("Frame")
+	reloadBar.Size = UDim2.fromScale(1, 1)
+	reloadBar.BackgroundColor3 = Color3.fromRGB(255, 160, 60)
+	reloadBar.BorderSizePixel = 0
+	reloadBar.Parent = back
+	Instance.new("UICorner", reloadBar).CornerRadius = UDim.new(1, 0)
+	refreshAmmo()
 end
 
 local function setAiming(on)
@@ -169,8 +316,16 @@ local function setAiming(on)
 		Theme.SetActive(aimBtn, on)
 	end
 	local cam = Workspace.CurrentCamera
+	if ammoPanel then
+		ammoPanel.Visible = on
+	end
+	fishingGui = fishingGui or player.PlayerGui:FindFirstChild("FishingGui")
+	if fishingGui then
+		fishingGui.Enabled = not on
+	end
 	if on then
 		yaw = 0
+		pitch = 0
 		camT = 0
 		exitTween = nil
 		savedFov = cam.FieldOfView
@@ -183,7 +338,7 @@ local function setAiming(on)
 	else
 		hideDots()
 		if cannon then
-			setYaw(cannon, 0)
+			setAim(cannon, 0, 0)
 		end
 		freezeCharacter(false)
 		setCharacterHidden(false)
@@ -196,12 +351,25 @@ local function setAiming(on)
 	end
 end
 
+local fireRemote
 local function fire()
 	if not cannon then
 		return
 	end
-	-- Ateş şimdilik kapalı: gemi savaşı sistemiyle birlikte açılacak
-	UIController.Notify("Cannons can't fire yet. Coming soon!", Color3.fromRGB(255, 214, 80))
+	if not aiming then
+		-- nişansız ateş: önce nişan moduna geç (yanlışlıkla boşa atış olmasın)
+		setAiming(true)
+		return
+	end
+	if os.clock() - lastFire < Cfg.Cooldown then
+		return
+	end
+	lastFire = os.clock()
+	shake = 0.6
+	fireRemote = fireRemote or ReplicatedStorage:FindFirstChild("CombatRemotes") and ReplicatedStorage.CombatRemotes:FindFirstChild("FireCannons")
+	if fireRemote then
+		fireRemote:FireServer(cannon, yaw, pitch, ammoId)
+	end
 end
 
 local function build()
@@ -212,8 +380,10 @@ local function build()
 	gui.Enabled = false
 	gui.Parent = player:WaitForChild("PlayerGui")
 	local step = Theme.ButtonSize + Theme.Gap
-	aimBtn = Theme.Button(gui, "AimButton", "🎯", "Aim (R)", UDim2.new(1, -18, 1, -24 - step * 2), Vector2.new(1, 1))
-	fireBtn = Theme.Button(gui, "FireButton", "💥", "Fire (F)", UDim2.new(1, -18, 1, -24 - step * 3), Vector2.new(1, 1))
+	-- "At" (olta) butonunun ve Sprint/Dive sütununun solunda: üst üste binmesin
+	aimBtn = Theme.Button(gui, "AimButton", "🎯", "Aim (R)", UDim2.new(1, -150, 1, -24), Vector2.new(1, 1))
+	fireBtn = Theme.Button(gui, "FireButton", "💥", "Fire (F)", UDim2.new(1, -150, 1, -24 - step), Vector2.new(1, 1))
+	buildAmmo(gui)
 	aimBtn.Activated:Connect(function()
 		setAiming(not aiming)
 	end)
@@ -229,8 +399,8 @@ local function build()
 	hint.TextSize = 18
 	hint.TextColor3 = Color3.fromRGB(255, 244, 214)
 	hint.Text = if UserInputService.TouchEnabled and not UserInputService.KeyboardEnabled
-		then "Drag to aim  ·  🎯 to stop"
-		else "Move mouse / A-D to aim  ·  R to stop"
+		then "Drag to aim  ·  💥 fire  ·  🎯 stop"
+		else "Mouse / A-D / W-S to aim  ·  F fire  ·  R stop"
 	hint.Visible = false
 	hint.Parent = gui
 	local corner = Instance.new("UICorner")
@@ -254,6 +424,15 @@ local function build()
 		d.Parent = folder
 		dots[i] = d
 	end
+	landRing = Instance.new("Part")
+	landRing.Name = "LandRing"
+	landRing.Shape = Enum.PartType.Cylinder
+	landRing.Size = Vector3.new(0.3, 7, 7)
+	landRing.Anchored, landRing.CanCollide, landRing.CanQuery, landRing.CanTouch, landRing.CastShadow = true, false, false, false, false
+	landRing.Material = Enum.Material.Neon
+	landRing.Color = Color3.fromRGB(255, 90, 60)
+	landRing.Transparency = 1
+	landRing.Parent = folder
 end
 
 function CannonController.Init()
@@ -263,6 +442,21 @@ function CannonController.Init()
 			keyLeft = true
 		elseif input.KeyCode == Enum.KeyCode.D or input.KeyCode == Enum.KeyCode.Right then
 			keyRight = true
+		elseif input.KeyCode == Enum.KeyCode.W or input.KeyCode == Enum.KeyCode.Up then
+			keyUp = true
+		elseif input.KeyCode == Enum.KeyCode.S or input.KeyCode == Enum.KeyCode.Down then
+			keyDown = true
+		end
+		if aiming and not processed then
+			if input.KeyCode == Enum.KeyCode.One then
+				selectAmmo(1)
+			elseif input.KeyCode == Enum.KeyCode.Two then
+				selectAmmo(2)
+			elseif input.KeyCode == Enum.KeyCode.Three then
+				selectAmmo(3)
+			elseif input.UserInputType == Enum.UserInputType.MouseButton1 then
+				fire()
+			end
 		end
 		if processed or not cannon then
 			return
@@ -278,6 +472,10 @@ function CannonController.Init()
 			keyLeft = false
 		elseif input.KeyCode == Enum.KeyCode.D or input.KeyCode == Enum.KeyCode.Right then
 			keyRight = false
+		elseif input.KeyCode == Enum.KeyCode.W or input.KeyCode == Enum.KeyCode.Up then
+			keyUp = false
+		elseif input.KeyCode == Enum.KeyCode.S or input.KeyCode == Enum.KeyCode.Down then
+			keyDown = false
 		end
 	end)
 	-- fare / parmak ile çevirme
@@ -287,12 +485,22 @@ function CannonController.Init()
 		end
 		if input.UserInputType == Enum.UserInputType.MouseMovement then
 			yaw -= input.Delta.X * MOUSE_SENS
+			pitch -= input.Delta.Y * MOUSE_SENS * 0.7
 		elseif input.UserInputType == Enum.UserInputType.Touch and not processed then
 			yaw -= input.Delta.X * TOUCH_SENS
+			pitch -= input.Delta.Y * TOUCH_SENS * 0.7
 		end
 	end)
 	local acc = 0
 	RunService:BindToRenderStep("CannonAim", Enum.RenderPriority.Camera.Value + 1, function(dt)
+		-- sinematik sahne sürerken (ör. eğitim finali) nişan modu kapalı kalır, kamerayı sahne yönetir
+		if player:GetAttribute("InCutscene") then
+			if aiming then
+				setAiming(false)
+				exitTween = nil
+			end
+			return
+		end
 		-- en yakın topu 5 kez/saniye ara
 		acc += dt
 		if acc >= 0.2 then
@@ -316,7 +524,18 @@ function CannonController.Init()
 				yaw -= KEY_SPEED * dt
 			end
 			yaw = math.clamp(yaw, -maxYaw, maxYaw)
-			setYaw(cannon, yaw)
+			if keyUp then
+				pitch += PITCH_KEY_SPEED * dt
+			end
+			if keyDown then
+				pitch -= PITCH_KEY_SPEED * dt
+			end
+			pitch = math.clamp(pitch, math.rad(Cfg.MinPitchDeg), math.rad(Cfg.MaxPitchDeg))
+			shake *= 0.86
+			if reloadBar then
+				reloadBar.Size = UDim2.fromScale(math.clamp((os.clock() - lastFire) / Cfg.Cooldown, 0, 1), 1)
+			end
+			setAim(cannon, yaw, pitch)
 			showPath(cannon)
 			-- kamera: önce yumuşak geçiş, sonra namluyu takip
 			UserInputService.MouseBehavior = Enum.MouseBehavior.LockCenter

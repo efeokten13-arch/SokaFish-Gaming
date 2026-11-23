@@ -32,14 +32,18 @@ local EVENTS = {
 
 	-- Giriş öğreticisi (yaşlı balıkçı ile sinematik sohbet)
 	"IntroStart", -- server -> client: öğreticiyi başlat
+	"MermaidStart", -- server -> client: deniz kızı Marina'nın sinematik öğreticisini başlat (2. adaya ilk gelişte)
 	"PoolTake", -- client -> server: havuzdaki i. balığı tekneye (envantere) al
 	"CoinBurst", -- server -> client: satıştan para geldi (miktar) -> ekranda para animasyonu
 	"GuideStep", -- server -> client: rehber adımı (id, görev yazısı, havuz parçası)
+	"PracticeState", -- server -> client: atış eğitimi durumu (kind, aşama, vuruş, korsanın cümlesi)
+	"PracticeFinale", -- server -> client: hedef gemi battı, anime patlama sahnesi (gemi CFrame, oyuncu id)
 }
 
 local FUNCTIONS = {
 	"GetPlayerData", -- client -> server: güncel veriyi iste
-	"IntroAction", -- client -> server: "claim" (ada al, ada numarası döner) | "done" (öğretici bitti)
+	"IntroAction", -- client -> server: ("mermaid", "Wave"|"Point"|"Cheer"|"done") deniz kızı | "claim" (ada al, ada numarası döner) | "done" (öğretici bitti)
+	"ShopAction", -- client -> server: (tür "Rods"|"Boats", id, "buy"|"equip"|"sail") -> (başarılı, mesaj, bakiye)
 }
 
 local folder: Folder

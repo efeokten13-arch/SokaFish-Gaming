@@ -1,5 +1,5 @@
 --!strict
--- Gemi topları: oyuncu kendi gemisinin dümenindeyken bir yandaki topları ateşler.
+-- Gemi topları: oyuncu kendi gemisinin güvertesinde bir topun yanına gider, nişan alır ve o topu ateşler.
 -- Şimdilik hasar yok (gemi savaşı sistemi gelince eklenecek); mermi, patlama ve su sıçraması görsel.
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local RunService = game:GetService("RunService")
@@ -8,26 +8,45 @@ local Workspace = game:GetService("Workspace")
 local Players = game:GetService("Players")
 
 local Cfg = require(ReplicatedStorage:WaitForChild("Shared"):WaitForChild("Config"):WaitForChild("Cannons"))
+local Audio = require(ReplicatedStorage:WaitForChild("Shared"):WaitForChild("Config"):WaitForChild("Audio"))
 
 local CannonService = {}
 
 local last: { [Player]: number } = {}
 local balls = Instance.new("Folder")
 balls.Name = "Cannonballs"
+local hitHandler: ((Player, Instance, Vector3) -> boolean)? = nil -- gülle bir şeye çarpınca çağrılır; true dönerse varsayılan patlama çıkmaz
 
-local function boatOf(player: Player): Model?
-	local char = player.Character
-	local hum = char and char:FindFirstChildOfClass("Humanoid")
-	local seat = hum and hum.SeatPart
-	local model = seat and seat:FindFirstAncestorWhichIsA("Model")
-	while model and not model:GetAttribute("HasCannons") do
-		model = model.Parent and model.Parent:FindFirstAncestorWhichIsA("Model")
-	end
-	if model and model:GetAttribute("OwnerUserId") == player.UserId then
-		return model
-	end
-	return nil
+-- Kısa 3D ses: görünmez, çapalı küçük parça içinde çalar ve silinir
+function CannonService.Sfx(pos: Vector3, id: string, volume: number?, speed: number?, life: number?)
+	local p = Instance.new("Part")
+	p.Anchored = true
+	p.CanCollide = false
+	p.CanQuery = false
+	p.CanTouch = false
+	p.Transparency = 1
+	p.Size = Vector3.one
+	p.Position = pos
+	local snd = Instance.new("Sound")
+	snd.SoundId = id
+	snd.Volume = volume or 1
+	snd.PlaybackSpeed = speed or 1
+	snd.RollOffMode = Enum.RollOffMode.InverseTapered
+	snd.RollOffMinDistance = 30
+	snd.RollOffMaxDistance = 700
+	snd.Parent = p
+	p.Parent = balls
+	snd:Play()
+	task.delay(life or 4, function()
+		p:Destroy()
+	end)
 end
+
+-- Eğitim servisi gibi sistemler gülle çarpmasını buradan dinler
+function CannonService.SetHitHandler(fn: ((Player, Instance, Vector3) -> boolean)?)
+	hitHandler = fn
+end
+
 
 local function flash(pos: Vector3)
 	local f = Instance.new("Part")
@@ -83,7 +102,7 @@ local function boom(pos: Vector3)
 	e.Parent = balls
 end
 
-local function shoot(origin: Vector3, velocity: Vector3, ignore: Instance)
+local function shoot(player: Player, origin: Vector3, velocity: Vector3, ignore: Instance)
 	local b = Instance.new("Part")
 	b.Name = "Cannonball"
 	b.Shape = Enum.PartType.Ball
@@ -110,7 +129,10 @@ local function shoot(origin: Vector3, velocity: Vector3, ignore: Instance)
 		if hit then
 			conn:Disconnect()
 			b:Destroy()
-			boom(hit.Position)
+			local handled = hitHandler and hitHandler(player, hit.Instance, hit.Position)
+			if not handled then
+				boom(hit.Position)
+			end
 			return
 		end
 		if nextPos.Y <= 0 then
@@ -129,47 +151,54 @@ local function shoot(origin: Vector3, velocity: Vector3, ignore: Instance)
 	end)
 end
 
-local function fire(player: Player, side: any, yaw: any)
-	if side ~= "Left" and side ~= "Right" then
+-- client: FireCannons:FireServer(barrel, yaw, pitch, ammoId). Oyuncu kendi gemisindeki bir topun yanında olmalı.
+local function fire(player: Player, barrel: any, yaw: any, pitch: any, ammo: any)
+	if typeof(barrel) ~= "Instance" or not barrel:IsA("BasePart") then
 		return
 	end
 	if typeof(yaw) ~= "number" or yaw ~= yaw then
 		yaw = 0
 	end
-	local maxYaw = math.rad(Cfg.MaxYawDeg)
-	yaw = math.clamp(yaw, -maxYaw, maxYaw)
-	local now = os.clock()
-	if last[player] and now - last[player] < Cfg.Cooldown then
+	if typeof(pitch) ~= "number" or pitch ~= pitch then
+		pitch = 0
+	end
+	local ammoOk = false
+	for _, a in Cfg.Ammo do
+		if a.id == ammo and not a.locked then
+			ammoOk = true
+		end
+	end
+	if not ammoOk then
 		return
 	end
-	local boat = boatOf(player)
-	local hull = boat and boat.PrimaryPart
-	local folder = boat and boat:FindFirstChild("Cannons")
-	if not boat or not hull or not folder then
+	yaw = math.clamp(yaw, -math.rad(Cfg.MaxYawDeg), math.rad(Cfg.MaxYawDeg))
+	pitch = math.clamp(pitch, math.rad(Cfg.MinPitchDeg), math.rad(Cfg.MaxPitchDeg))
+	local now = os.clock()
+	if last[player] and now - last[player] < Cfg.Cooldown - 0.15 then
+		return
+	end
+	-- top oyuncunun kendi (toplu) gemisinde mi, oyuncu yanında mı?
+	local boat = barrel:FindFirstAncestorWhichIsA("Model")
+	while boat and not boat:GetAttribute("HasCannons") do
+		boat = boat.Parent and boat.Parent:FindFirstAncestorWhichIsA("Model")
+	end
+	if not boat or boat:GetAttribute("OwnerUserId") ~= player.UserId then
+		return
+	end
+	local hull = boat.PrimaryPart
+	local weld = barrel:FindFirstChild("Hinge") :: Weld?
+	local root = player.Character and player.Character:FindFirstChild("HumanoidRootPart") :: BasePart?
+	if not hull or not weld or not root or (root.Position - barrel.Position).Magnitude > Cfg.UseRange then
 		return
 	end
 	last[player] = now
-	local list = {}
-	for _, b in folder:GetChildren() do
-		if b:IsA("BasePart") and b:GetAttribute("Side") == side then
-			table.insert(list, b)
-		end
-	end
-	for i, barrel in list do
-		task.delay((i - 1) * 0.12, function()
-			local weld = barrel:FindFirstChild("Hinge") :: Weld?
-			if not weld or not hull.Parent then
-				return
-			end
-			local base = weld:GetAttribute("BaseC0") :: CFrame
-			weld.C0 = base * CFrame.Angles(0, yaw, 0)
-			local cf = hull.CFrame * weld.C0 * weld.C1:Inverse()
-			local dir = cf.RightVector
-			local muzzle = (cf * CFrame.new(barrel.Size.X / 2 + 0.8, 0, 0)).Position
-			flash(muzzle)
-			shoot(muzzle, dir * Cfg.Speed + Vector3.new(0, Cfg.Arc, 0) + hull.AssemblyLinearVelocity, boat)
-		end)
-	end
+	local base = weld:GetAttribute("BaseC0") :: CFrame
+	weld.C0 = base * CFrame.Angles(0, yaw, 0) * CFrame.Angles(0, 0, pitch)
+	local cf = hull.CFrame * weld.C0 * weld.C1:Inverse()
+	local muzzle = (cf * CFrame.new(barrel.Size.X / 2 + 0.8, 0, 0)).Position
+	flash(muzzle)
+	CannonService.Sfx(muzzle, Audio.Cannon, 0.9, 0.95 + math.random() * 0.1, 4)
+	shoot(player, muzzle, cf.RightVector * Cfg.Speed + Vector3.new(0, Cfg.Arc, 0) + hull.AssemblyLinearVelocity, boat)
 end
 
 function CannonService.Init()

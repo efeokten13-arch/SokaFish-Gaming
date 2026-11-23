@@ -134,10 +134,13 @@ local function onJoin(player: Player)
 end
 
 -- Öğreticiden gelen istekler
-local function onIntroAction(player: Player, action: any): any
+local function onIntroAction(player: Player, action: any, arg: any): any
 	local data = DataService.Get(player) :: any
 	if not data then
 		return nil
+	end
+	if action == "mermaid" then
+		return require(script.Parent.MermaidService).Action(player, arg)
 	end
 	if action == "claim" then
 		local island = MapService.GetIsland(player) or MapService.AssignIsland(player)

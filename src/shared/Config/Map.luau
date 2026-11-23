@@ -40,8 +40,9 @@ local Map = {
 		walkZ = 18, -- yürüme yolu
 		startX = 64, -- yürüme yolunun karadaki başlangıcı
 		fingerLen = 34,
-		fingers = { -71, -33, 5, 56, 94 },
-		slipZ = { -52, -14, 37, 75 }, -- tekne yuvaları (ShopOrder sırasıyla)
+		-- yürüme yolu (z = 18) ortada: parmaklar ona göre simetrik (±38, ±76), tekne yuvaları aralarında eşit boşlukta
+		fingers = { -58, -20, 56, 94 },
+		slipZ = { -39, -1, 37, 75 }, -- tekne yuvaları (ShopOrder sırasıyla)
 	},
 	-- Balık pazarı: kuzey kıyısında, platform + kuzeye uzanan bağlama iskelesi (MapBuilder/IslandLife)
 	FishMarket = { x = -26, z = -185, width = 28, depth = 20, dockLength = 44 },
