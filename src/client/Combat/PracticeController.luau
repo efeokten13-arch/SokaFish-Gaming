@@ -239,8 +239,8 @@ local function buildHud()
 
 	card = Instance.new("Frame")
 	card.AnchorPoint = Vector2.new(0.5, 0)
-	card.Position = UDim2.new(0.5, 0, 0, 178)
-	card.Size = UDim2.fromOffset(480, 118)
+	card.Position = UDim2.new(0.5, 0, 0, 104)
+	card.Size = UDim2.fromOffset(400, 96)
 	card.BackgroundColor3 = NAVY
 	card.BackgroundTransparency = 0.1
 	card.Parent = hud
@@ -264,9 +264,9 @@ local function buildHud()
 	textLbl = Instance.new("TextLabel")
 	textLbl.BackgroundTransparency = 1
 	textLbl.Position = UDim2.fromOffset(14, 30)
-	textLbl.Size = UDim2.new(1, -28, 0, 50)
+	textLbl.Size = UDim2.new(1, -28, 0, 38)
 	textLbl.Font = Enum.Font.GothamMedium
-	textLbl.TextSize = 17
+	textLbl.TextSize = 15
 	textLbl.TextWrapped = true
 	textLbl.TextXAlignment = Enum.TextXAlignment.Left
 	textLbl.TextYAlignment = Enum.TextYAlignment.Top
@@ -276,7 +276,7 @@ local function buildHud()
 
 	local lbl = Instance.new("TextLabel")
 	lbl.BackgroundTransparency = 1
-	lbl.Position = UDim2.new(0, 14, 1, -32)
+	lbl.Position = UDim2.new(0, 14, 1, -26)
 	lbl.Size = UDim2.fromOffset(60, 22)
 	lbl.Font = Enum.Font.GothamBold
 	lbl.TextSize = 13
@@ -286,8 +286,8 @@ local function buildHud()
 	lbl.Parent = card
 	for k = 1, Cfg.Hits do
 		local d = Instance.new("Frame")
-		d.Size = UDim2.fromOffset(16, 16)
-		d.Position = UDim2.new(0, 62 + (k - 1) * 24, 1, -29)
+		d.Size = UDim2.fromOffset(14, 14)
+		d.Position = UDim2.new(0, 56 + (k - 1) * 22, 1, -22)
 		d.BackgroundColor3 = Color3.fromRGB(60, 64, 78)
 		d.BorderSizePixel = 0
 		d.Parent = card
@@ -350,7 +350,7 @@ local function showCard()
 	end
 	hud.Enabled = true
 	card.Position = UDim2.new(0.5, 0, 0, -160)
-	tween(card, 0.5, { Position = UDim2.new(0.5, 0, 0, 178) }, Enum.EasingStyle.Back)
+	tween(card, 0.5, { Position = UDim2.new(0.5, 0, 0, 104) }, Enum.EasingStyle.Back)
 end
 
 local function hideCard(delay)
@@ -368,7 +368,7 @@ local function onState(d)
 	end
 	if d.kind == "intro" then
 		refreshPips(0)
-		Gate.PlayIntro()
+		Gate.PlayIntro(d.frame)
 	elseif d.kind == "sail" then
 		Gate.SetQuestActive(true)
 		Gate.MusicStart()
@@ -383,6 +383,9 @@ local function onState(d)
 	elseif d.kind == "hit" then
 		Gate.ShowMarker(false)
 		refreshPips(d.hits)
+		if d.last then
+			Gate.MarkEnemy(false)
+		end
 		if not d.last then
 			showHit()
 			if d.text then

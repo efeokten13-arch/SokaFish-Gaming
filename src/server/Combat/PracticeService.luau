@@ -33,6 +33,7 @@ local clock = 0
 local pirate: Model? = nil
 local pirateHead: BasePart? = nil
 local cheerTrack: AnimationTrack? = nil
+local pointTrack: AnimationTrack? = nil
 local fireSpotPart: BasePart? = nil
 local lastNotice: { [Player]: number } = {}
 
@@ -219,6 +220,22 @@ local function hitFx(pos: Vector3)
 	end
 end
 
+-- korsan düşman gemisini gösterir: "point" animasyonu kol yukarıdayken durdurulur, süre bitince bırakılır
+local function point(seconds: number)
+	local tr = pointTrack
+	if not tr then
+		return
+	end
+	tr:Play(0.2)
+	task.delay(0.55, function()
+		tr:AdjustSpeed(0)
+	end)
+	task.delay(seconds, function()
+		tr:AdjustSpeed(1)
+		tr:Stop(0.4)
+	end)
+end
+
 local function cheer(seconds: number)
 	if cheerTrack then
 		cheerTrack:Play(0.2)
@@ -381,16 +398,14 @@ local function begin(player: Player, withIntro: boolean)
 		end
 	end
 	if withIntro then
-		send(player, { kind = "intro", t0 = Workspace:GetServerTimeNow() })
+		send(player, { kind = "intro", t0 = Workspace:GetServerTimeNow(), frame = frame })
 		local I = Cfg.Intro
-		task.delay(0.4, function()
-			bubble(Cfg.IntroText1, I.ToPirate + I.Winch)
+		task.delay(I.Doors, function()
+			bubble(Cfg.IntroText1, I.ToPirate)
 		end)
-		task.delay(I.ToPirate, function()
-			cheer(I.Winch)
-		end)
-		task.delay(I.ToPirate + I.Winch + I.Doors, function()
-			bubble(Cfg.IntroText2, I.Talk + 1)
+		task.delay(I.Doors + I.ToPirate, function()
+			bubble(Cfg.IntroText2, I.Point + 1)
+			point(I.Point)
 		end)
 		task.delay(I.Total, toSail)
 	else
@@ -520,6 +535,15 @@ function PracticeService.Init()
 			if ok then
 				cheerTrack = tr
 				tr.Priority = Enum.AnimationPriority.Action
+			end
+			local pa = Instance.new("Animation")
+			pa.AnimationId = "rbxassetid://507770453" -- işaret etme (Roblox R15 "point" emote)
+			local ok2, tr2 = pcall(function()
+				return animator:LoadAnimation(pa)
+			end)
+			if ok2 then
+				pointTrack = tr2
+				tr2.Priority = Enum.AnimationPriority.Action2
 			end
 		end
 	end

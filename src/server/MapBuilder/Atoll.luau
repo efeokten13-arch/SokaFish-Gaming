@@ -2231,24 +2231,60 @@ function Atoll.Training(c)
 		end
 	end
 
-	-- ---- Yüzer sallar: yelken yolunun başı ve sonu -----------------------------------------------------------------------
-	for _, spec in { { 140, "START", Color3.fromRGB(60, 170, 90) }, { 272, "TURN", Color3.fromRGB(220, 170, 60) } } do
+	-- ---- Gözetleme kulesi (eski START salının yerinde): korsan tepede durur, kapı açılınca düşman gemisini gösterir -----
+	local TOWER = { s = 140, u = -86, top = 30 }
+	do
 		local m = Instance.new("Model")
-		m.Name = "Raft" .. spec[2]
+		m.Name = "LookoutTower"
 		m.Parent = f
-		local s, u = spec[1], -86
-		Util.part(m, "RaftDeck", Vector3.new(18, 1, 14), F(s, u, 1.6), WOOD, Enum.Material.WoodPlanks)
-		for _, d in { { -7, -5 }, { 7, -5 }, { -7, 5 }, { 7, 5 } } do
-			Util.cyl(m, "Float", 3, 3.2, F(s + d[2], u + d[1], 0.6) * CFrame.Angles(0, 0, math.pi / 2), Color3.fromRGB(240, 240, 230), Enum.Material.SmoothPlastic)
+		local s0, u0, H = TOWER.s, TOWER.u, TOWER.top
+		-- dört kalın ayak (deniz dibinden), çapraz kuşaklar
+		local legs = {}
+		for _, d in { { -5, -5 }, { 5, -5 }, { -5, 5 }, { 5, 5 } } do
+			local p = T(s0 + d[1], u0 + d[2])
+			Util.pole(m, "Leg", p.X, p.Z, -30, H, 1.8, DARK, Enum.Material.Wood)
+			table.insert(legs, d)
 		end
-		local pole = T(s, u + 5)
-		Util.pole(m, "FlagPole", pole.X, pole.Z, 2, 17, 0.7, DARK, Enum.Material.Wood)
-		Util.noCollide(Util.part(m, "Flag", Vector3.new(0.2, 3.4, 6), F(s, u + 5, 14.5) * CFrame.new(0, 0, 3.2), spec[3], Enum.Material.Fabric))
-		torch(m, T(s, u - 5, 2.1))
-		local sign = Util.part(m, "RaftSign", Vector3.new(10, 2.4, 0.6), F(s, u - 3, 6.4) * CFrame.Angles(0, -math.pi / 2, 0), Color3.fromRGB(58, 40, 28), Enum.Material.WoodPlanks)
-		Util.sign(sign, Enum.NormalId.Front, spec[2], Color3.fromRGB(255, 236, 190))
-		Util.pole(m, "SignPole", T(s, u - 3).X, T(s, u - 3).Z, 2, 6, 0.7, DARK, Enum.Material.Wood)
+		for _, y in { 4, 14, 24 } do
+			for i = 1, 4 do
+				local a, b = legs[i], legs[i % 4 + 1]
+				Util.noCollide(Util.rod(m, "Brace", T(s0 + a[1], u0 + a[2], y), T(s0 + b[1], u0 + b[2], y + 8), 0.8, WOOD, Enum.Material.Wood))
+			end
+		end
+		-- su seviyesinde iskele basamağı + merdiven
+		Util.part(m, "Landing", Vector3.new(14, 1, 6), F(s0, u0 + 10, 2), WOOD, Enum.Material.WoodPlanks)
+		for _, side in { -1.6, 1.6 } do
+			Util.noCollide(Util.rod(m, "LadderRail", T(s0 + side, u0 + 8.8, 2), T(s0 + side, u0 + 8.4, H + 3), 0.4, DARK, Enum.Material.Wood))
+		end
+		for y = 4, H, 2.4 do
+			Util.noCollide(Util.cyl(m, "Rung", 3.2, 0.3, F(s0, u0 + 8.8 - (y / H) * 0.4, y) * CFrame.Angles(0, math.pi / 2, 0), DARK, Enum.Material.Wood))
+		end
+		-- gözetleme platformu, korkuluk, çatı
+		Util.part(m, "Platform", Vector3.new(16, 1, 16), F(s0, u0, H + 0.5), WOOD, Enum.Material.WoodPlanks)
+		for _, d in { { -7.5, -7.5 }, { 7.5, -7.5 }, { -7.5, 7.5 }, { 7.5, 7.5 } } do
+			local p = T(s0 + d[1], u0 + d[2])
+			Util.pole(m, "RoofPost", p.X, p.Z, H + 1, H + 11, 0.8, DARK, Enum.Material.Wood)
+		end
+		for _, e in { { 0, -7.5, 16, 0.4 }, { 0, 7.5, 16, 0.4 }, { -7.5, 0, 0.4, 16 }, { 7.5, 0, 0.4, 16 } } do
+			Util.part(m, "Railing", Vector3.new(e[4] < 1 and e[4] or 16, 0.4, e[3] < 1 and e[3] or 16), F(s0 + e[1], u0 + e[2], H + 4), DARK, Enum.Material.Wood)
+		end
+		Util.part(m, "Roof", Vector3.new(19, 1, 19), F(s0, u0, H + 11.5), Color3.fromRGB(120, 82, 52), Enum.Material.WoodPlanks)
+		Util.part(m, "RoofTier", Vector3.new(14, 1, 14), F(s0, u0, H + 12.5), Color3.fromRGB(110, 74, 46), Enum.Material.WoodPlanks)
+		Util.part(m, "RoofTier", Vector3.new(8, 1, 8), F(s0, u0, H + 13.5), Color3.fromRGB(100, 66, 42), Enum.Material.WoodPlanks)
+		-- tepede korsan bayrağı, fener, fıçı, dürbün sehpası
+		local fp = T(s0 - 7, u0 - 7)
+		Util.pole(m, "FlagPole", fp.X, fp.Z, H + 1, H + 26, 0.7, DARK, Enum.Material.Wood)
+		local flagP = Util.part(m, "Flag", Vector3.new(0.2, 5, 8), F(s0 - 7, u0 - 7, H + 23.5) * CFrame.new(0, 0, -4.2), Color3.fromRGB(22, 22, 26), Enum.Material.Fabric)
+		flagP.CanCollide = false
+		Util.sign(flagP, Enum.NormalId.Right, "☠", Color3.fromRGB(236, 230, 214))
+		Util.sign(flagP, Enum.NormalId.Left, "☠", Color3.fromRGB(236, 230, 214))
+		torch(m, T(s0 + 6.5, u0 - 6.5, H + 1))
+		torch(m, T(s0 - 6.5, u0 + 6.5, H + 1))
+		Util.cyl(m, "Barrel", 3.6, 2.8, F(s0 + 5.5, u0 + 5.5, H + 2.8) * CFrame.Angles(0, 0, math.pi / 2), Color3.fromRGB(122, 84, 52), Enum.Material.Wood)
+		Util.cyl(m, "Spyglass", 3.4, 0.6, F(s0 - 5, u0 + 4, H + 5) * CFrame.Angles(0, 0.6, 0.25), GOLD, Enum.Material.Metal).CanCollide = false
+		Util.part(m, "SpyglassStand", Vector3.new(0.5, 4, 0.5), F(s0 - 5, u0 + 4, H + 3), DARK, Enum.Material.Wood)
 	end
+	Util.zone(f, "PirateTowerSpot", Vector3.new(2, 2, 2), F(TOWER.s, TOWER.u, TOWER.top + 1))
 
 	local lx, lz = L(205, 0)
 	label(f, lx, lz, "Gunnery Range", 38)
@@ -2297,19 +2333,19 @@ function Atoll.Training(c)
 			end
 		end
 	end
-	Util.zone(f, "PirateGateSpot", Vector3.new(2, 2, 2), F(37, -97, GY + 1) * CFrame.Angles(0, -math.pi / 2, 0))
 	-- oyuncunun gemiyi getirip ateş edeceği nokta (Config/Practice.FireSpot) — client burada parlayan halka çizer
 	Util.zone(f, "FireSpot", Vector3.new(4, 4, 4), F(PS.FireSpot.s, PS.FireSpot.u, 1))
 
-	-- Korsan öğretmeni kapı vincinin yanına taşı (kıyıdaki asıl NPC Studio'da duruyor). Kapıya / kanala bakar.
+	-- Korsan öğretmeni gözetleme kulesinin tepesine taşı (kıyıdaki asıl NPC Studio'da duruyor). Düşman gemisine bakar.
 	local npcs = Workspace:FindFirstChild("NPCs")
 	local pirate = npcs and npcs:FindFirstChild("Pirate Tutor")
 	if pirate then
-		local spot = T(37, -97, GY)
-		local face = T(10, -40, GY)
+		local top = TOWER.top + 1
+		local spot = T(TOWER.s + 2, TOWER.u + 2, top)
+		local face = T(PS.Berth.s, PS.Berth.u, top)
 		pirate:PivotTo(CFrame.lookAt(spot + Vector3.new(0, 3, 0), Vector3.new(face.X, spot.Y + 3, face.Z)))
 		local bb, sz = pirate:GetBoundingBox()
-		pirate:PivotTo(pirate:GetPivot() + Vector3.new(0, GY + 1 - (bb.Position.Y - sz.Y / 2), 0))
+		pirate:PivotTo(pirate:GetPivot() + Vector3.new(0, top - (bb.Position.Y - sz.Y / 2), 0))
 	end
 end
 

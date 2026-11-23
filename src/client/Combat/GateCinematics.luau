@@ -475,46 +475,58 @@ end
 local function runShots(shots, total, onDone)
 	local cam = Workspace.CurrentCamera
 	local start = os.clock()
-	local prevEnd = cam.CFrame
 	local shake = 0
+	local finished = false
 	RunService:BindToRenderStep("GateCineCam", Enum.RenderPriority.Camera.Value + 6, function()
-		local e = os.clock() - start
+		-- Studio testi: oyuncuda "CineFreeze" sayısı varsa sahne o saniyede donar (ekran görüntüsü için)
+		local freeze = RunService:IsStudio() and player:GetAttribute("CineFreeze")
+		local e = typeof(freeze) == "number" and freeze or (os.clock() - start)
+		if typeof(freeze) == "number" then
+			start = os.clock() - freeze
+		end
+		if e >= total and not finished then
+			finished = true
+			pcall(function()
+				RunService:UnbindFromRenderStep("GateCineCam")
+			end)
+			if onDone then
+				onDone()
+			end
+			return
+		end
 		cam.CameraType = Enum.CameraType.Scriptable
 		for _, sh in shots do
 			if e >= sh[1] and e < sh[2] then
 				local k = (e - sh[1]) / (sh[2] - sh[1])
-				local pos, tgt, fov, blendFrom, sk = sh[3](k)
-				local cf = CFrame.lookAt(pos, tgt)
-				if blendFrom then
-					cf = prevEnd:Lerp(cf, ease(k / blendFrom))
-				end
+				local pos, tgt, fov, _, sk = sh[3](k)
 				shake = math.max(shake * 0.92, sk or 0)
 				local off = Vector3.new(math.random() - 0.5, math.random() - 0.5, math.random() - 0.5) * shake
-				cam.CFrame = cf + off
+				cam.CFrame = CFrame.lookAt(pos, tgt) + off
 				cam.FieldOfView = fov
 				return
 			end
 		end
 	end)
-	task.delay(total, function()
-		pcall(function()
-			RunService:UnbindFromRenderStep("GateCineCam")
-		end)
-		if onDone then
-			onDone()
-		end
-	end)
-	return function(cf)
-		prevEnd = cf
-	end
 end
 
 ---------------------------------------------------------------------------------------------
 -- 1) Giriş sinematiği
 ---------------------------------------------------------------------------------------------
-function G.PlayIntro()
-	if cineRunning or not frame then
+function G.PlayIntro(sentFrame)
+	if cineRunning then
 		return
+	end
+	frame = frame or sentFrame
+	if not frame then
+		return
+	end
+	-- ışınlanınca kapı / körfez henüz yüklenmemiş olabilir (StreamingEnabled): yükle ve en fazla 4 sn bekle
+	pcall(function()
+		player:RequestStreamAroundAsync(T(60, 0, 0), 4)
+	end)
+	local t0 = os.clock()
+	while not grabDoors() and os.clock() - t0 < 4 do
+		task.wait(0.2)
 	end
 	questActive = true
 	grabDoors()
@@ -522,10 +534,10 @@ function G.PlayIntro()
 	local npcs = Workspace:FindFirstChild("NPCs")
 	local pirate = npcs and npcs:FindFirstChild("Pirate Tutor")
 	local head = pirate and pirate:FindFirstChild("Head")
-	local headPos = head and head.Position or T(37, -97, 15)
-	local face = pirate and pirate:GetPivot().LookVector or (T(10, -40) - T(37, -97)).Unit
-	face = Vector3.new(face.X, 0, face.Z).Unit
-	local right = face:Cross(Vector3.yAxis)
+	local headPos = head and head.Position or T(142, -84, 36)
+	local enemy = T(Cfg.Berth.s, Cfg.Berth.u, 6)
+	local toEnemy = Vector3.new(enemy.X - headPos.X, 0, enemy.Z - headPos.Z).Unit
+	local right = toEnemy:Cross(Vector3.yAxis)
 	local gateC = T(0, 0, 26)
 	local outside = -(frame :: CFrame).LookVector
 	local winch = Workspace:FindFirstChild("Atoll") and Workspace.Atoll:FindFirstChild("GateWinch", true)
@@ -541,68 +553,98 @@ function G.PlayIntro()
 
 	cineBegin()
 	G.MusicStart()
-	local cam = Workspace.CurrentCamera
-	local cam0 = cam.CFrame
-	local t1 = I.ToPirate
-	local t2 = t1 + I.Winch
-	local t3 = t2 + I.Doors
-	local t4 = t3 + I.Talk
+	local t1 = I.Doors
+	local t2 = t1 + I.ToPirate
+	local t3 = t2 + I.Point
+	-- korsanın önünden yakın plan (yüzü görünsün): düşmana doğru bakıyor, kamera onun önünde ve biraz yanında
+	local closeA = headPos + toEnemy * 9 - right * 3.5 + Vector3.new(0, 0.6, 0)
+	-- omuz üstü: korsanın arkasından düşman gemisine
+	local shoulder = headPos - toEnemy * 6 + right * 2.6 + Vector3.new(0, 1.4, 0)
 	local shots = {
-		-- A) oyuncudan korsana uçuş + zoom
+		-- A) kapı: dışarıdan, gemi tarafından; kanatlar açılır
 		{ 0, t1, function(k)
-			local close = headPos + face * 9 + right * 3 + Vector3.new(0, 1.2, 0)
-			local p = cam0.Position:Lerp(close, ease(k)) + Vector3.new(0, math.sin(k * math.pi) * 40, 0)
-			local tgt = (cam0.Position + cam0.LookVector * 50):Lerp(headPos, ease(math.min(1, k * 1.6)))
-			return p, tgt, 70 - 32 * ease(k)
-		end },
-		-- B) çark: yandan orta plan
-		{ t1, t2, function(k)
-			local p = capAxis + face * 14 + right * -10 + Vector3.new(0, 7, 0) + right * 3 * k
-			return p, capAxis + Vector3.new(0, 3, 0), 52
-		end },
-		-- C) kapı: dışarıdan, gemi tarafından; kanatlar açılır
-		{ t2, t3, function(k)
 			local p = gateC + outside * (150 - 30 * k) + Vector3.new(0, 30 - 8 * k, 0)
-			return p, gateC + Vector3.new(0, -4, 0), 62, nil, k < 0.12 and 1.4 or 0
+			return p, gateC + Vector3.new(0, -4, 0), 62, nil, k < 0.15 and 1.4 or 0
 		end },
-		-- D) korsan konuşur
-		{ t3, I.Total, function(k)
-			local p = headPos + face * 8 - right * 3.5 + Vector3.new(0, 0.8, 0) + face * -1.5 * k
-			return p, headPos + Vector3.new(0, -0.3, 0), 42
+		-- B) kapıdan geçip kuledeki korsana uçuş + zoom
+		{ t1, t2, function(k)
+			local from = gateC + outside * 120 + Vector3.new(0, 22, 0)
+			local mid = T(60, -30, 34)
+			local e = ease(k)
+			local p
+			if e < 0.5 then
+				p = from:Lerp(mid, e * 2)
+			else
+				p = mid:Lerp(closeA, (e - 0.5) * 2)
+			end
+			local tgt = gateC:Lerp(headPos, ease(math.min(1, k * 1.4)))
+			return p, tgt, 64 - 24 * e
+		end },
+		-- C) korsan gösterir: omzunun üstünden düşman gemisine kayan kamera
+		{ t2, I.Total, function(k)
+			local e = ease(math.min(1, k * 1.5))
+			local p = closeA:Lerp(shoulder, e)
+			local tgt = headPos:Lerp(enemy, e)
+			local fov = 40 + 12 * e - 22 * ease(math.max(0, k - 0.55) / 0.45) -- sonunda gemiye zoom
+			return p, tgt, fov
 		end },
 	}
 	runShots(shots, I.Total, cineEnd)
-	say("PIRATE TUTOR", Cfg.IntroText1)
-	task.delay(t1, function()
-		subPanel.Visible = false
-		sfx(Audio.ChainRattle, 0.8, 1, nil, Cfg.Intro.Winch + 1)
-		-- çark döner
+	-- düşman gemisi: kırmızı çerçeve (görev bitene kadar kalır)
+	G.MarkEnemy(true)
+	sfx(Audio.ChainRattle, 0.8, 1, nil, I.Doors)
+	sfx(Audio.GateCreak, 1.2, 0.45)
+	task.delay(0.6, function()
+		sfx(Audio.GateCreak, 1, 0.38)
+	end)
+	G.SetDoors(true, I.Doors - 0.3)
+	-- çark kendi kendine döner (zincir kapıyı çeker)
+	task.spawn(function()
 		local t0 = os.clock()
-		while os.clock() - t0 < I.Winch + 0.4 do
+		while os.clock() - t0 < I.Doors do
 			local a = (os.clock() - t0) * 3
 			for _, c in capParts do
 				c.part.CFrame = CFrame.new(capAxis) * CFrame.Angles(0, a, 0) * (CFrame.new(capAxis):Inverse() * c.cf)
 			end
 			RunService.RenderStepped:Wait()
 		end
-	end)
-	task.delay(t2, function()
-		sfx(Audio.GateCreak, 1.2, 0.45)
-		task.delay(0.6, function()
-			sfx(Audio.GateCreak, 1, 0.38)
-		end)
-		G.SetDoors(true, I.Doors - 0.4)
-	end)
-	task.delay(t3, function()
-		say("PIRATE TUTOR", Cfg.IntroText2)
-	end)
-	task.delay(t4 + 0.5, function()
 		for _, c in capParts do
 			if c.part.Parent then
 				c.part.CFrame = c.cf
 			end
 		end
 	end)
+	task.delay(t1 + 0.3, function()
+		say("PIRATE TUTOR", Cfg.IntroText1)
+	end)
+	task.delay(t2, function()
+		say("PIRATE TUTOR", Cfg.IntroText2)
+	end)
+end
+
+-- Düşman gemisine kırmızı çerçeve (Highlight): oyuncu neyi vuracağını anlasın
+local enemyHL
+function G.MarkEnemy(on)
+	if enemyHL then
+		enemyHL:Destroy()
+		enemyHL = nil
+	end
+	if not on then
+		return
+	end
+	local ship = Workspace:FindFirstChild("PracticeShip")
+	if not ship then
+		return
+	end
+	enemyHL = Instance.new("Highlight")
+	enemyHL.Name = "EnemyMark"
+	enemyHL.FillColor = Color3.fromRGB(255, 60, 40)
+	enemyHL.FillTransparency = 0.8
+	enemyHL.OutlineColor = Color3.fromRGB(255, 70, 50)
+	enemyHL.OutlineTransparency = 0
+	enemyHL.DepthMode = Enum.HighlightDepthMode.AlwaysOnTop
+	enemyHL.Adornee = ship
+	enemyHL.Parent = ship
 end
 
 ---------------------------------------------------------------------------------------------
@@ -676,6 +718,7 @@ end
 ---------------------------------------------------------------------------------------------
 function G.SetQuestActive(on)
 	questActive = on
+	G.MarkEnemy(on)
 	if on then
 		G.SetDoors(true, doorsOpen and 0 or 2.5)
 	end
