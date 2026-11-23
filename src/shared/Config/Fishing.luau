@@ -23,8 +23,10 @@ local Fishing = {
 	StartProgress = 0.3, -- bar bu kadar dolu başlar (0-1)
 	ProgressGain = 0.32, -- balık alanın içindeyken saniyede dolma
 	ProgressLoss = 0.22, -- balık dışarıdayken saniyede boşalma
-	ZoneAccelUp = 2.6, -- basılı tutunca yeşil alanın yukarı ivmesi
-	ZoneAccelDown = 2.4, -- bırakınca aşağı ivme
+	-- Kontrol: "hold" = basılı tut (yükselir) / bırak (düşer)  ·  "tap" = eski hızlı tıklama
+	ReelControl = "hold",
+	ZoneAccelUp = 2.6, -- (hold) basılı tutunca göstergenin yukarı ivmesi
+	ZoneAccelDown = 1.9, -- (hold) bırakınca aşağı ivme
 	MaxReelTime = 45, -- bundan uzun süren çekme geçersiz sayılır (sn)
 
 	-- Olta görseli

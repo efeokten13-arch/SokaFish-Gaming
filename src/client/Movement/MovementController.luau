@@ -54,6 +54,9 @@ local function applySpeed()
 		hum.WalkSpeed = target
 	end
 	local fov = (sprinting() and hum.MoveDirection.Magnitude > 0.1) and Cfg.SprintFov or Cfg.NormalFov
+	if Players.LocalPlayer:GetAttribute("ReelZoom") then
+		fov = Cfg.NormalFov - 9 -- balık çekerken kamera hafif yakınlaşır (ReelingController)
+	end
 	local cam = Workspace.CurrentCamera
 	if cam and math.abs(cam.FieldOfView - fov) > 0.5 then
 		cam.FieldOfView += (fov - cam.FieldOfView) * 0.15

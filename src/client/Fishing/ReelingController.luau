@@ -6,7 +6,9 @@
 --   PC:    F tuşu veya ekrandaki butona tıklama
 --   Gamepad: X
 --
--- Akış: "At" -> bekle -> "BAS!" -> hızlı hızlı tıkla: gösterge yeşilde kalsın
+-- Akış: "At" -> bekle -> "BAS!" -> basılı tut / bırak (Config/Fishing.ReelControl = "hold"; "tap" = eski hızlı tıklama): gösterge yeşilde kalsın
+-- His (juice): ilerledikçe makara sesi incelir, vuruşta kamera yakınlaşır, kırmızıda ekran ve çubuk titrer,
+--   yeşilde parıltılar çıkar, şamandırada köpük, Epic/Legendary takılınca suda renkli parıltı + parlayan çerçeve.
 --   Çekme çubuğu: altta ve üstte kırmızı, ortada yeşil (arada turuncu).
 --   Her tıklama göstergeyi yukarı iter, yerçekimi aşağı çeker, balık da rastgele çekiştirir.
 --   Yavaş tıklarsan aşağı düşer, çok hızlı tıklarsan yukarı fırlar. Yeşilde ilerleme dolar;
@@ -73,6 +75,15 @@ local barSpeed, targetSize = 1, 0.3
 local zp, zv, fp, ft, fTimer, progress = 0, 0, 0.5, 0.5, 0, 0.3
 local pos, vel, pull, pullTimer, redTime, greenSize = 0.5, 0, 0, 0, 0, 0.36
 local reelSound: Sound? = nil
+local HOLD = Cfg.ReelControl ~= "tap"
+local shakeAmt = 0
+local sparkleTimer = 0
+local barBasePos: UDim2? = nil
+local barStroke: UIStroke? = nil
+local omenLabel: TextLabel? = nil
+local hookedRarity = "Common"
+local hookedAt = 0 -- takılma anı (ilk anlarda düşüş yumuşak, oyuncu tepki verebilsin)
+local fx = {} -- şamandıradaki köpük / nadirlik parıltısı (client'ta, sadece bu oyuncu görür)
 
 -- UI referansları
 local gui, button, status, bar, zone, fishDot, progFill, popup, viewport, popupLabel
@@ -119,6 +130,7 @@ local function buildUI()
 	pad.PaddingTop = UDim.new(0, 30)
 	pad.PaddingBottom = UDim.new(0, 30)
 	pad.Parent = button
+	Instance.new("UIScale").Parent = button
 	button.Parent = gui
 
 	-- Durum yazısı (butonun üstünde)
@@ -147,7 +159,20 @@ local function buildUI()
 	bar.ClipsDescendants = false
 	corner(bar, UDim.new(0, 12))
 	stroke(bar, Color3.new(1, 1, 1), 3)
+	barStroke = bar:FindFirstChildOfClass("UIStroke")
 	bar.Parent = gui
+	barBasePos = bar.Position
+	-- nadirlik habercisi: Epic / Legendary takılınca çubuğun üstünde
+	omenLabel = Instance.new("TextLabel")
+	omenLabel.AnchorPoint = Vector2.new(0.5, 1)
+	omenLabel.Position = UDim2.new(0.5, 0, 0, -46)
+	omenLabel.Size = UDim2.fromOffset(260, 30)
+	omenLabel.BackgroundTransparency = 1
+	omenLabel.Font = Enum.Font.Bangers
+	omenLabel.TextSize = 30
+	omenLabel.TextStrokeTransparency = 0.1
+	omenLabel.Visible = false
+	omenLabel.Parent = bar
 
 	local function zoneFrame(name, color, anchorY)
 		local f = Instance.new("Frame")
@@ -253,7 +278,7 @@ local function buildUI()
 	tapHint.TextSize = 26
 	tapHint.TextColor3 = Color3.new(1, 1, 1)
 	tapHint.TextStrokeTransparency = 0.2
-	tapHint.Text = "TAP TAP!"
+	tapHint.Text = if HOLD then "HOLD!" else "TAP TAP!"
 	tapHint.Parent = bar
 
 	zone = greenFrame
@@ -319,6 +344,123 @@ local function pulse()
 	end)
 end
 
+---------------------------------------------------------------------------------------------
+-- His (juice) yardımcıları
+---------------------------------------------------------------------------------------------
+local function squash(scale)
+	local sc = button:FindFirstChildOfClass("UIScale")
+	if sc then
+		TweenService:Create(sc, TweenInfo.new(0.12, Enum.EasingStyle.Back), { Scale = scale }):Play()
+	end
+end
+
+local function myBobber(): BasePart?
+	local folder = Workspace:FindFirstChild("FishingFX")
+	local root = player.Character and player.Character:FindFirstChild("HumanoidRootPart") :: BasePart?
+	if not folder or not root then
+		return nil
+	end
+	local best, bd = nil, 60
+	for _, b in folder:GetChildren() do
+		if b.Name == "Bobber" and b:IsA("BasePart") then
+			local d = (b.Position - root.Position).Magnitude
+			if d < bd then
+				best, bd = b, d
+			end
+		end
+	end
+	return best
+end
+
+local function clearFx()
+	for _, x in fx do
+		if x and x.Parent then
+			x:Destroy()
+		end
+	end
+	fx = {}
+end
+
+-- şamandıranın etrafında köpük + (Epic/Legendary) renkli parıltı
+local function bobberFx(rarity: string)
+	clearFx()
+	local b = myBobber()
+	if not b then
+		return
+	end
+	local att = Instance.new("Attachment")
+	att.Name = "ReelFx"
+	att.Position = Vector3.new(0, -0.3, 0)
+	att.Parent = b
+	table.insert(fx, att)
+	local foam = Instance.new("ParticleEmitter")
+	foam.Texture = "rbxasset://textures/particles/smoke_main.dds"
+	foam.Color = ColorSequence.new(Color3.fromRGB(245, 252, 255))
+	foam.Size = NumberSequence.new({ NumberSequenceKeypoint.new(0, 0.6), NumberSequenceKeypoint.new(1, 2.6) })
+	foam.Transparency = NumberSequence.new({ NumberSequenceKeypoint.new(0, 0.25), NumberSequenceKeypoint.new(1, 1) })
+	foam.Lifetime = NumberRange.new(0.6, 1)
+	foam.Rate = 22
+	foam.Speed = NumberRange.new(2, 4)
+	foam.SpreadAngle = Vector2.new(70, 70)
+	foam.Acceleration = Vector3.new(0, -6, 0)
+	foam.Parent = att
+	table.insert(fx, foam)
+	local rar = (Rarities :: any)[rarity]
+	if rar and (rarity == "Epic" or rarity == "Legendary") then
+		local glow = Instance.new("ParticleEmitter")
+		glow.Texture = "rbxasset://textures/particles/sparkles_main.dds"
+		glow.Color = ColorSequence.new(rar.color)
+		glow.LightEmission = 1
+		glow.Size = NumberSequence.new({ NumberSequenceKeypoint.new(0, 0.9), NumberSequenceKeypoint.new(1, 0) })
+		glow.Lifetime = NumberRange.new(0.8, 1.6)
+		glow.Rate = rarity == "Legendary" and 40 or 22
+		glow.Speed = NumberRange.new(3, 7)
+		glow.SpreadAngle = Vector2.new(50, 50)
+		glow.Parent = att
+		table.insert(fx, glow)
+		local light = Instance.new("PointLight")
+		light.Color = rar.color
+		light.Range = 18
+		light.Brightness = 3
+		light.Parent = b
+		table.insert(fx, light)
+	end
+end
+
+-- yeşildeyken iğnenin yanından yeşil yıldızcıklar uçar
+local function sparkle()
+	local s = Instance.new("Frame")
+	local sz = math.random(7, 12)
+	s.Size = UDim2.fromOffset(sz, sz)
+	s.AnchorPoint = Vector2.new(0.5, 0.5)
+	s.BackgroundColor3 = if math.random() < 0.3 then Color3.new(1, 1, 0.8) else Color3.fromRGB(120, 255, 130)
+	s.BorderSizePixel = 0
+	s.Rotation = 45
+	s.ZIndex = 6
+	local side = math.random() < 0.5 and -1 or 1
+	s.Position = UDim2.new(0.5 + side * 0.6, 0, needle.Position.Y.Scale, 0)
+	local st = Instance.new("UIStroke")
+	st.Color = Color3.fromRGB(30, 120, 40)
+	st.Thickness = 1
+	st.Parent = s
+	s.Parent = bar
+	local tw = TweenService:Create(s, TweenInfo.new(0.55, Enum.EasingStyle.Quad), {
+		Position = UDim2.new(0.5 + side * (0.95 + math.random() * 0.6), 0, needle.Position.Y.Scale - 0.04 - math.random() * 0.07, 0),
+		BackgroundTransparency = 1,
+		Size = UDim2.fromOffset(2, 2),
+		Rotation = 45 + math.random(-120, 120),
+	})
+	tw:Play()
+	task.delay(0.6, function()
+		s:Destroy()
+	end)
+end
+
+local function restoreCamera()
+	player:SetAttribute("ReelZoom", nil)
+	shakeAmt = 0
+end
+
 local function finish(message: string)
 	if reelSound then
 		reelSound:Stop()
@@ -328,6 +470,15 @@ local function finish(message: string)
 	phase = "cooldown"
 	holding = false
 	bar.Visible = false
+	clearFx()
+	restoreCamera()
+	squash(1)
+	if omenLabel then
+		omenLabel.Visible = false
+	end
+	if barBasePos then
+		bar.Position = barBasePos
+	end
 	setState(message, "At")
 	task.delay(1.5, function()
 		if phase == "cooldown" then
@@ -559,7 +710,11 @@ local function press()
 		-- erken bastı: server "early" diyecek
 		Remotes.Event("HookRequest"):FireServer()
 	elseif phase == "reeling" then
-		tap()
+		if HOLD then
+			squash(0.88)
+		else
+			tap()
+		end
 	elseif phase == "bite" then
 		phase = "hooking"
 		setState("Takılıyor...", "...")
@@ -569,6 +724,13 @@ end
 
 local function release()
 	holding = false
+	if phase == "reeling" then
+		local sc = button:FindFirstChildOfClass("UIScale")
+		if sc then
+			sc.Scale = 1.08
+			TweenService:Create(sc, TweenInfo.new(0.2, Enum.EasingStyle.Back), { Scale = 1 }):Play()
+		end
+	end
 end
 
 local function isOurKey(input: InputObject): boolean
@@ -590,15 +752,22 @@ local function bindInput()
 		if isOurKey(input) and button.Visible then
 			press()
 		elseif phase == "reeling" and (input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch or input.KeyCode == Enum.KeyCode.Space) then
-			tap() -- ekranın herhangi bir yerine tıklamak da sayılır
+			-- ekranın herhangi bir yerine basmak da sayılır
+			if HOLD then
+				activeInput = input
+				holding = true
+				squash(0.88)
+			else
+				tap()
+			end
 		end
 	end)
 
 	UserInputService.InputEnded:Connect(function(input)
-		if input == activeInput or input.UserInputType == Enum.UserInputType.MouseButton1 then
+		if input == activeInput or input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
 			activeInput = nil
 			release()
-		elseif isOurKey(input) then
+		elseif isOurKey(input) or input.KeyCode == Enum.KeyCode.Space then
 			release()
 		end
 	end)
@@ -688,7 +857,14 @@ local function updateReel(dt: number)
 		pull = (math.random() * 2 - 1) * FISH_PULL * barSpeed
 		pullTimer = (0.5 + math.random() * 1.0) / math.max(barSpeed, 0.5)
 	end
-	vel += (pull - GRAVITY - CENTER * (pos - 0.5)) * dt
+	if HOLD then
+		-- basılı tut: yükselir, bırak: düşer (balık da çekiştirir)
+		local grace = math.clamp((os.clock() - hookedAt) / 1.2, 0.1, 1)
+		local acc = if holding then Cfg.ZoneAccelUp else -Cfg.ZoneAccelDown * grace
+		vel += (acc + pull * grace) * dt
+	else
+		vel += (pull - GRAVITY - CENTER * (pos - 0.5)) * dt
+	end
 	vel *= math.exp(-DAMPING * dt)
 	pos += vel * dt
 	if pos < 0 then
@@ -715,10 +891,43 @@ local function updateReel(dt: number)
 	needle.BackgroundColor3 = if inRed then Color3.fromRGB(255, 90, 80) elseif inGreen then Color3.new(1, 1, 1) else Color3.fromRGB(255, 235, 180)
 	progFill.Size = UDim2.fromScale(1, math.clamp(progress, 0, 1))
 	dangerFill.Size = UDim2.fromScale(1, math.clamp(redTime / RED_LIMIT, 0, 1))
-	tapHint.Text = if pos <= RED_ZONE then "FASTER! ⬆" elseif pos >= 1 - RED_ZONE then "SLOWER! ⬇" elseif inGreen then "Nice! 👍" else "TAP TAP!"
+	if HOLD then
+		tapHint.Text = if pos <= RED_ZONE then "HOLD! ⬆" elseif pos >= 1 - RED_ZONE then "LET GO! ⬇" elseif inGreen then "Nice! 👍" else (if holding then "Easy..." else "HOLD!")
+	else
+		tapHint.Text = if pos <= RED_ZONE then "FASTER! ⬆" elseif pos >= 1 - RED_ZONE then "SLOWER! ⬇" elseif inGreen then "Nice! 👍" else "TAP TAP!"
+	end
 	tapHint.TextColor3 = if inRed then Color3.fromRGB(255, 110, 100) else Color3.new(1, 1, 1)
+	-- makara sesi: ilerledikçe incelir ("az kaldı!"), hızlı hareket ekstra tiz
 	if reelSound then
-		reelSound.PlaybackSpeed = 0.85 + math.clamp(math.abs(vel), 0, 1.2) * 0.5
+		reelSound.PlaybackSpeed = 0.78 + math.clamp(progress, 0, 1) * 0.55 + math.clamp(math.abs(vel), 0, 1.2) * 0.15
+		reelSound.Volume = 0.45 + math.clamp(progress, 0, 1) * 0.35
+	end
+	-- kırmızıda: çubuk sallanır + kamera hafif titrer
+	if inRed then
+		shakeAmt = math.min(shakeAmt + dt * 2, 0.22)
+		if barBasePos then
+			bar.Position = barBasePos + UDim2.fromOffset(math.random(-4, 4), math.random(-3, 3))
+		end
+	else
+		shakeAmt = math.max(shakeAmt - dt * 1.5, 0)
+		if barBasePos then
+			bar.Position = barBasePos
+		end
+	end
+	-- yeşilde: parıltılar
+	if inGreen then
+		sparkleTimer -= dt
+		if sparkleTimer <= 0 then
+			sparkleTimer = 0.09
+			sparkle()
+		end
+	end
+	-- nadir balıkta çerçeve nabız gibi parlar
+	if barStroke and (hookedRarity == "Epic" or hookedRarity == "Legendary") then
+		local rc = (Rarities :: any)[hookedRarity].color
+		local k = 0.5 + 0.5 * math.sin(os.clock() * 7)
+		barStroke.Color = Color3.new(1, 1, 1):Lerp(rc, k)
+		barStroke.Thickness = 3 + k * 3
 	end
 
 	player:SetAttribute("ReelPos", math.floor(pos * 100) / 100) -- test
@@ -744,6 +953,7 @@ local function bindRemotes()
 		phase = "bite"
 		setState("Vurdu!", "BAS!", COLOR_BITE)
 		pulse()
+		shakeAmt = 0.3
 	end)
 
 	Remotes.Event("FishHooked").OnClientEvent:Connect(function(info)
@@ -757,8 +967,38 @@ local function bindRemotes()
 		fishDot.BackgroundColor3 = (Rarities :: any)[info.rarity].color
 		bar.Visible = true
 		phase = "reeling"
+		hookedRarity = info.rarity
+		hookedAt = os.clock()
+		if barStroke then
+			barStroke.Color = Color3.new(1, 1, 1)
+			barStroke.Thickness = 3
+		end
 		startReelSound()
-		setState("Hızlı tıkla!", "Tıkla")
+		setState(if HOLD then "" else "Hızlı tıkla!", if HOLD then "Tut" else "Tıkla") -- (hold) ipucu çubuğun üstünde
+		-- kamera biraz yakınlaşır (balıkla boğuşma)
+		player:SetAttribute("ReelZoom", true) -- FOV'u MovementController yumuşakça düşürür
+		bobberFx(info.rarity)
+		-- Epic / Legendary habercisi
+		if omenLabel then
+			if info.rarity == "Legendary" or info.rarity == "Epic" then
+				local rc = (Rarities :: any)[info.rarity].color
+				omenLabel.Text = if info.rarity == "Legendary" then "✨ SOMETHING LEGENDARY! ✨" else "⚡ Something EPIC! ⚡"
+				omenLabel.TextColor3 = rc
+				omenLabel.Visible = true
+				omenLabel.TextSize = 12
+				TweenService:Create(omenLabel, TweenInfo.new(0.4, Enum.EasingStyle.Back), { TextSize = 30 }):Play()
+				if info.rarity == "Legendary" then
+					local th = Instance.new("Sound")
+					th.SoundId = Audio.Thunder[1]
+					th.Volume = 0.35
+					th.Parent = game:GetService("SoundService")
+					th:Play()
+					game:GetService("Debris"):AddItem(th, 8)
+				end
+			else
+				omenLabel.Visible = false
+			end
+		end
 	end)
 
 	Remotes.Event("FishingEnded").OnClientEvent:Connect(function(reason)
@@ -769,6 +1009,18 @@ local function bindRemotes()
 	Remotes.Event("FishCaught").OnClientEvent:Connect(function(fishId, isNew)
 		local def = Fish[fishId]
 		finish((def and def.displayName or fishId) .. " yakalandı!")
+		-- nadirliğe göre zafer sesi (yeni türlerde zaten fanfar çalıyor)
+		if def and not isNew and (def.rarity == "Epic" or def.rarity == "Legendary") then
+			local v = Instance.new("Sound")
+			v.SoundId = if def.rarity == "Legendary" then Audio.VictorySting else Audio.NewFish
+			v.Volume = 0.6
+			v.Parent = game:GetService("SoundService")
+			v:Play()
+			task.delay(if def.rarity == "Legendary" then 5 else 4, function()
+				TweenService:Create(v, TweenInfo.new(1), { Volume = 0 }):Play()
+				game:GetService("Debris"):AddItem(v, 1.2)
+			end)
+		end
 		if isNew then
 			showNewFish(fishId)
 		else
@@ -786,9 +1038,22 @@ function ReelingController.Init()
 				tap()
 			end
 		end)
+		player:GetAttributeChangedSignal("DebugHold"):Connect(function()
+			holding = player:GetAttribute("DebugHold") == true
+		end)
 	end
 	bindInput()
 	bindRemotes()
+	-- kamera titremesi (kamera güncellemesinden sonra küçük kaydırma)
+	RunService:BindToRenderStep("ReelShake", Enum.RenderPriority.Camera.Value + 2, function()
+		if shakeAmt > 0.005 and not player:GetAttribute("InCutscene") then
+			local cam = Workspace.CurrentCamera
+			cam.CFrame = cam.CFrame * CFrame.new((math.random() - 0.5) * shakeAmt, (math.random() - 0.5) * shakeAmt, 0)
+			if phase ~= "reeling" then
+				shakeAmt *= 0.85
+			end
+		end
+	end)
 
 	local scanTimer = 0
 	RunService.RenderStepped:Connect(function(dt)
