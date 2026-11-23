@@ -101,16 +101,20 @@ local function buildSign(model: Model, dock: BasePart, player: Player): { ImageL
 	}
 end
 
+-- Bayrak ölçüleri (stud). Adalar ana adadan ~500 stud uzakta; oradan seçilebilsin diye büyük.
+local FLAG_POLE_HEIGHT = 42
+local FLAG_SIZE = Vector2.new(15, 9.5)
+
 local function buildFlag(model: Model, spawnPart: BasePart, player: Player)
 	local color = colorFor(player.UserId)
 	local ground = spawnPart.Position.Y - spawnPart.Size.Y / 2
-	local p = spawnPart.Position + Vector3.new(5, 0, 5)
-	local height = 16
-	part(model, "FlagPole", Vector3.new(0.45, height, 0.45), CFrame.new(p.X, ground + height / 2, p.Z), Color3.fromRGB(220, 220, 225), Enum.Material.Metal)
-	local knob = part(model, "FlagKnob", Vector3.new(0.8, 0.8, 0.8), CFrame.new(p.X, ground + height + 0.3, p.Z), Color3.fromRGB(235, 190, 70), Enum.Material.Metal)
+	local p = spawnPart.Position + Vector3.new(6, 0, 6)
+	local height = FLAG_POLE_HEIGHT
+	part(model, "FlagPole", Vector3.new(0.9, height, 0.9), CFrame.new(p.X, ground + height / 2, p.Z), Color3.fromRGB(220, 220, 225), Enum.Material.Metal)
+	local knob = part(model, "FlagKnob", Vector3.new(1.6, 1.6, 1.6), CFrame.new(p.X, ground + height + 0.6, p.Z), Color3.fromRGB(235, 190, 70), Enum.Material.Metal)
 	knob.Shape = Enum.PartType.Ball
 	knob.CanCollide = false
-	local flag = part(model, "Flag", Vector3.new(5, 3.2, 0.12), CFrame.new(p.X + 2.7, ground + height - 1.8, p.Z), color, Enum.Material.Fabric)
+	local flag = part(model, "Flag", Vector3.new(FLAG_SIZE.X, FLAG_SIZE.Y, 0.2), CFrame.new(p.X + FLAG_SIZE.X / 2 + 0.45, ground + height - FLAG_SIZE.Y / 2 - 0.5, p.Z), color, Enum.Material.Fabric)
 	flag.CanCollide = false
 	for _, face in { Enum.NormalId.Front, Enum.NormalId.Back } do
 		local gui = Instance.new("SurfaceGui")
