@@ -8,6 +8,20 @@ local DataService = require(script.Parent.Parent.Data.DataService)
 local BookService = {}
 
 function BookService.Init()
+	-- 23 Kasım: kitap adalardan kaldırıldı, koleksiyon ekranın köşesindeki 📖 butonuyla açılıyor (client/UI/CollectionBook).
+	-- Eski kürsü kalmışsa onu da siler.
+	task.spawn(function()
+		local folder = Workspace:WaitForChild("PrivateIslands", 60)
+		for _, island in folder and folder:GetChildren() or {} do
+			local lectern = island:FindFirstChild("Lectern")
+			if lectern then
+				lectern:Destroy()
+			end
+		end
+	end)
+	do
+		return
+	end
 	task.spawn(function()
 		local folder = Workspace:WaitForChild("PrivateIslands", 60)
 		if not folder then

@@ -17,7 +17,7 @@ local rng = Random.new()
 local function fishPool(ocean: string, spot: string): { [string]: { string } }
 	local byRarity: { [string]: { string } } = {}
 	for id, def in Fish do
-		if def.ocean == ocean and table.find(def.spots, spot) then
+		if def.ocean == ocean and not def.retired and table.find(def.spots, spot) then
 			byRarity[def.rarity] = byRarity[def.rarity] or {}
 			table.insert(byRarity[def.rarity], id)
 		end

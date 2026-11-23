@@ -167,14 +167,17 @@ local function book(model, cfg, f)
 	return m
 end
 
+-- 23 Kasım: kitap kürsüleri kaldırıldı (koleksiyon artık ekrandaki 📖 butonunda). Bu fonksiyon kürsüleri siler.
 function Islands.AddBooks(cfg)
 	local folder = Workspace:FindFirstChild("PrivateIslands")
 	for i = 1, cfg.Ring.count do
 		local model = folder and folder:FindFirstChild("Island" .. i)
-		if model then
-			book(model, cfg, Layout.frame(cfg, i))
+		local old = model and model:FindFirstChild("Lectern")
+		if old then
+			old:Destroy()
 		end
 	end
+	local _ = book
 end
 
 -- Var olan adalara Spawn ekler (adaları yeniden kurmadan)

@@ -353,8 +353,12 @@ local function showPopup(fishId: string)
 		return
 	end
 	model.Parent = viewport
+	-- modeli kutusunun ortasına al (denizanası, denizatı gibi dik şekiller de kadraja sığsın)
+	local bcf, bsize = model:GetBoundingBox()
+	model:TranslateBy(-bcf.Position)
+	local basePivot = model:GetPivot()
 
-	local L = def.look.length
+	local L = math.max(bsize.X, bsize.Y, bsize.Z)
 	local cam = Instance.new("Camera")
 	cam.FieldOfView = 40
 	cam.CFrame = CFrame.lookAt(Vector3.new(L * 1.7 + 1, L * 0.3, 0), Vector3.zero)
@@ -368,7 +372,7 @@ local function showPopup(fishId: string)
 	local t0 = os.clock()
 	popupConn = RunService.RenderStepped:Connect(function()
 		local t = os.clock() - t0
-		model:PivotTo(CFrame.Angles(0, t * 1.2, 0))
+		model:PivotTo(CFrame.Angles(0, t * 1.2, 0) * basePivot)
 		if t > 3 then
 			if popupConn then
 				popupConn:Disconnect()
@@ -440,13 +444,16 @@ local function showNewFish(fishId: string)
 	vp.LightColor = Color3.new(1, 1, 1)
 	vp.ZIndex = 22
 	vp.Parent = bigPopup
+	local bigL, bigBase
 	local model = FishModelBuilder.Build(fishId)
 	if model then
 		model.Parent = vp
-		local cf = model:GetBoundingBox()
+		local cf, bsize = model:GetBoundingBox()
 		model:TranslateBy(-cf.Position)
+		bigL = math.max(bsize.X, bsize.Y, bsize.Z)
+		bigBase = model:GetPivot()
 	end
-	local L = def.look.length
+	local L = bigL or def.look.length
 	local cam = Instance.new("Camera")
 	cam.FieldOfView = 40
 	cam.CFrame = CFrame.lookAt(Vector3.new(L * 1.5 + 1, L * 0.25, 0), Vector3.zero)
@@ -512,7 +519,7 @@ local function showNewFish(fishId: string)
 	conn = RunService.RenderStepped:Connect(function(dt)
 		local t = os.clock() - t0
 		if model then
-			model:PivotTo(CFrame.Angles(0, t * 1.6, math.sin(t * 2) * 0.12))
+			model:PivotTo(CFrame.Angles(0, t * 1.6, math.sin(t * 2) * 0.12) * bigBase)
 		end
 		rays.Rotation = t * 25
 		glow.BackgroundTransparency = 0.1 + math.sin(t * 5) * 0.08
