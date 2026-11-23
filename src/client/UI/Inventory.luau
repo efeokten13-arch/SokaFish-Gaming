@@ -1,341 +1,481 @@
---!strict
--- Envanter (teknedeki balıklar).
---   Solda yuvarlak buton -> panel açılır: her balığın modeli, adı, nadirliği ve satış fiyatı.
---   Veri server'dan gelir: açılışta GetPlayerData, sonra her değişiklikte DataUpdated.
---   Kısayol: G (F balık tutma, E ProximityPrompt için kullanılıyor)
-
+--!nonstrict
+-- Sırt çantası (teknedeki / üstümüzdeki balıklar).
+--   Soldaki 🐟 "Fish" butonu (veya G) çantayı açar: her balık bir kutucuk (3D model, ad, fiyat). Dokununca seçilir.
+--   Alttaki butonlar bulunduğun yere göre değişir:
+--     * Balık pazarının yanında: "Sell selected" / "Sell all"  (çanta pazara yaklaşınca kendiliğinden açılır)
+--     * Kendi adandaki havuzun yanında: "To pool" / "All to pool"
+--     * Başka yerde: sadece bakılır (nereye gideceğini söyler)
+--   Server her işlemde yeri tekrar kontrol eder (SellService.SellFish, PoolService.PoolDeposit).
 local Players = game:GetService("Players")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local UserInputService = game:GetService("UserInputService")
 local TweenService = game:GetService("TweenService")
+local RunService = game:GetService("RunService")
+local Workspace = game:GetService("Workspace")
 
 local player = Players.LocalPlayer
-
 local Shared = ReplicatedStorage:WaitForChild("Shared")
 local Config = Shared:WaitForChild("Config")
 local Fish = require(Config:WaitForChild("Fish"))
 local Rarities = require(Config:WaitForChild("Rarities"))
 local Boats = require(Config:WaitForChild("Boats"))
+local Economy = require(Config:WaitForChild("Economy"))
 local Remotes = require(Shared:WaitForChild("Remotes"))
 local FishModelBuilder = require(Shared:WaitForChild("FishModelBuilder"))
+local Theme = require(script.Parent:WaitForChild("Theme"))
 
 local Inventory = {}
 
 local TOGGLE_KEY = Enum.KeyCode.G
+local MARKET_RANGE = 24 -- çantanın kendiliğinden açıldığı mesafe (server 45'e kadar kabul eder)
+local POOL_RANGE = 60
 
-local COLOR_BG = Color3.fromRGB(18, 30, 46)
-local COLOR_ROW = Color3.fromRGB(32, 48, 68)
-local COLOR_EMPTY = Color3.fromRGB(26, 38, 54)
-local COLOR_ACCENT = Color3.fromRGB(30, 140, 210)
-local COLOR_FULL = Color3.fromRGB(220, 70, 60)
-local COLOR_PRICE = Color3.fromRGB(255, 215, 90)
-local COLOR_MUTED = Color3.fromRGB(140, 155, 175)
+local BG = Color3.fromRGB(18, 30, 46)
+local TILE = Color3.fromRGB(32, 48, 68)
+local EMPTY = Color3.fromRGB(24, 36, 52)
+local ACCENT = Color3.fromRGB(30, 140, 210)
+local FULL = Color3.fromRGB(220, 70, 60)
+local GOLD = Color3.fromRGB(255, 205, 80)
+local GREEN = Color3.fromRGB(70, 185, 100)
+local MUTED = Color3.fromRGB(150, 165, 185)
 
-local toggleButton: TextButton
-local badge: TextLabel
-local panel: Frame
-local panelScale: UIScale
-local titleLabel: TextLabel
-local list: ScrollingFrame
-local totalLabel: TextLabel
-local isOpen = false
+local gui, toggleButton, badge, panel, panelScale, title, banner, grid, selLabel
+local btnAll, btnSelected, btnSelectAll
+local isOpen, autoOpened = false, false
+local storage, slots, poolCount = {}, 3, 0
+local selected = {} -- [slot] = true
+local place = "none" -- "market" | "pool" | "none"
+local spinning = {}
 
--- Yardımcılar ----------------------------------------------------------------
-
-local function corner(parent: Instance, radius: UDim)
+---------------------------------------------------------------------------------------------
+local function corner(p, r)
 	local c = Instance.new("UICorner")
-	c.CornerRadius = radius
-	c.Parent = parent
+	c.CornerRadius = UDim.new(0, r)
+	c.Parent = p
 end
 
-local function stroke(parent: Instance, color: Color3, thickness: number)
+local function stroke(p, color, th)
 	local s = Instance.new("UIStroke")
 	s.Color = color
-	s.Thickness = thickness
+	s.Thickness = th
 	s.ApplyStrokeMode = Enum.ApplyStrokeMode.Border
-	s.Parent = parent
+	s.Parent = p
+	return s
 end
 
-local function label(parent: Instance, name: string, value: string, color: Color3, font: Enum.Font): TextLabel
+local function text(parent, str, size, pos, color, font, maxSize, align)
 	local t = Instance.new("TextLabel")
-	t.Name = name
 	t.BackgroundTransparency = 1
-	t.Text = value
+	t.Size = size
+	t.Position = pos
+	t.Text = str
 	t.TextColor3 = color
-	t.Font = font
+	t.Font = font or Enum.Font.GothamBold
 	t.TextScaled = true
-	t.TextXAlignment = Enum.TextXAlignment.Left
+	t.TextXAlignment = align or Enum.TextXAlignment.Center
 	t.Parent = parent
+	local c = Instance.new("UITextSizeConstraint")
+	c.MaxTextSize = maxSize or 16
+	c.Parent = t
 	return t
 end
 
--- Veri DataService.Payload formatında gelir (slots, protectedSlots dahil)
-local function slotCount(data: any): number
-	if data and data.slots then
-		return data.slots
-	end
-	local boat = data and (Boats :: any)[data.boat]
-	return if boat then boat.slots else 3
+local function money(n)
+	local s = tostring(math.floor(n))
+	local out = s:reverse():gsub("(%d%d%d)", "%1,"):reverse()
+	return "$" .. (out:gsub("^,", ""))
 end
 
--- Satırlar -------------------------------------------------------------------
+local function button(parent, str, color)
+	local b = Instance.new("TextButton")
+	b.BackgroundColor3 = color
+	b.Font = Enum.Font.FredokaOne
+	b.TextScaled = true
+	b.TextColor3 = Color3.new(1, 1, 1)
+	b.Text = str
+	b.AutoButtonColor = true
+	corner(b, 10)
+	local c = Instance.new("UITextSizeConstraint")
+	c.MaxTextSize = 18
+	c.Parent = b
+	local pad = Instance.new("UIPadding")
+	pad.PaddingLeft = UDim.new(0, 8)
+	pad.PaddingRight = UDim.new(0, 8)
+	pad.Parent = b
+	b.Parent = parent
+	return b
+end
 
--- Balığı yandan gösteren küçük 3D önizleme
-local function fishViewport(parent: Instance, fishId: string)
+---------------------------------------------------------------------------------------------
+-- Nerede duruyorum?
+---------------------------------------------------------------------------------------------
+local function myPool()
+	local folder = Workspace:FindFirstChild("PrivateIslands")
+	for _, isl in folder and folder:GetChildren() or {} do
+		if isl:GetAttribute("OwnerUserId") == player.UserId then
+			return isl:FindFirstChild("Pool")
+		end
+	end
+	return nil
+end
+
+local function detectPlace()
+	local root = player.Character and player.Character:FindFirstChild("HumanoidRootPart")
+	if not root then
+		return "none"
+	end
+	local market = Workspace:FindFirstChild("FishMarket")
+	for _, d in market and market:GetDescendants() or {} do
+		if d.Name == "SellCounter" and d:IsA("BasePart") and (d.Position - root.Position).Magnitude < MARKET_RANGE then
+			return "market"
+		end
+	end
+	local pool = myPool()
+	if pool and pool:IsA("BasePart") and (pool.Position - root.Position).Magnitude < POOL_RANGE then
+		return "pool"
+	end
+	return "none"
+end
+
+---------------------------------------------------------------------------------------------
+-- Çizim
+---------------------------------------------------------------------------------------------
+local function selectedList()
+	local out, total = {}, 0
+	for i in selected do
+		if storage[i] then
+			table.insert(out, i)
+			total += Fish[storage[i]] and Fish[storage[i]].sell or 0
+		end
+	end
+	table.sort(out)
+	return out, total
+end
+
+local function totalValue()
+	local t = 0
+	for _, id in storage do
+		t += Fish[id] and Fish[id].sell or 0
+	end
+	return t
+end
+
+local function refreshBar()
+	local list, total = selectedList()
+	selLabel.Text = #list > 0 and ("Selected " .. #list .. "  ·  " .. money(total)) or ("Bag value " .. money(totalValue()))
+	if place == "market" then
+		banner.Text = "🐟 FISH MARKET  —  tap fish to choose what to sell"
+		banner.TextColor3 = GOLD
+		btnSelected.Visible, btnAll.Visible = true, true
+		btnSelected.Text = "Sell selected  " .. money(total)
+		btnAll.Text = "Sell all  " .. money(totalValue())
+		btnSelected.BackgroundColor3 = Color3.fromRGB(225, 150, 40)
+		btnAll.BackgroundColor3 = Color3.fromRGB(200, 110, 30)
+	elseif place == "pool" then
+		local free = Economy.PoolCapacity - poolCount
+		banner.Text = "🏝️ YOUR POOL  " .. poolCount .. "/" .. Economy.PoolCapacity .. "  —  tap fish to keep in the pool" .. (free <= 0 and "  (pool full: sell one on the TV)" or "")
+		banner.TextColor3 = Color3.fromRGB(140, 230, 170)
+		btnSelected.Visible, btnAll.Visible = true, true
+		btnSelected.Text = "To pool (" .. #list .. ")"
+		btnAll.Text = "All to pool"
+		btnSelected.BackgroundColor3 = GREEN
+		btnAll.BackgroundColor3 = Color3.fromRGB(50, 150, 80)
+	else
+		banner.Text = "Sell at the Fish Market  ·  Keep fish in your island pool"
+		banner.TextColor3 = MUTED
+		btnSelected.Visible, btnAll.Visible = false, false
+	end
+	btnSelected.Active = #list > 0
+	btnSelected.AutoButtonColor = #list > 0
+	btnSelected.BackgroundTransparency = #list > 0 and 0 or 0.5
+	btnAll.BackgroundTransparency = #storage > 0 and 0 or 0.5
+	btnSelectAll.Text = (#list == #storage and #storage > 0) and "Clear" or "Select all"
+	btnSelectAll.Visible = #storage > 0
+end
+
+local function tile(i, id)
+	local def = Fish[id]
+	local rar = def and Rarities[def.rarity]
+	local t = Instance.new("TextButton")
+	t.Name = "Slot" .. i
+	t.LayoutOrder = i
+	t.Text = ""
+	t.AutoButtonColor = false
+	t.BackgroundColor3 = TILE
+	corner(t, 10)
+	local st = stroke(t, rar and rar.color or MUTED, 2)
+	local strip = Instance.new("Frame")
+	strip.Size = UDim2.new(1, 0, 0, 5)
+	strip.BackgroundColor3 = rar and rar.color or MUTED
+	strip.BorderSizePixel = 0
+	strip.Parent = t
 	local vp = Instance.new("ViewportFrame")
-	vp.Name = "Preview"
-	vp.Size = UDim2.new(0, 64, 1, -8)
-	vp.Position = UDim2.fromOffset(10, 4)
+	vp.Position = UDim2.fromOffset(5, 9)
+	vp.Size = UDim2.new(1, -10, 0, 62)
 	vp.BackgroundTransparency = 1
-	vp.Ambient = Color3.fromRGB(200, 200, 200)
+	vp.Ambient = Color3.fromRGB(200, 200, 210)
 	vp.LightColor = Color3.new(1, 1, 1)
-	vp.LightDirection = Vector3.new(-1, -1, -1)
-	vp.Parent = parent
-
-	local model = FishModelBuilder.Build(fishId)
-	if not model then
-		return
+	vp.LightDirection = Vector3.new(-1, -1.4, -0.8)
+	vp.Parent = t
+	local model = FishModelBuilder.Build(id)
+	if model then
+		model.Parent = vp
+		local cf, size = model:GetBoundingBox()
+		model:TranslateBy(-cf.Position)
+		local dim = math.max(size.X, size.Y, size.Z)
+		local cam = Instance.new("Camera")
+		cam.FieldOfView = 34
+		cam.CFrame = CFrame.lookAt(Vector3.new(dim * 1.3, dim * 0.4, -dim * 0.6), Vector3.zero)
+		cam.Parent = vp
+		vp.CurrentCamera = cam
+		table.insert(spinning, { model = model, base = model:GetPivot(), a = i })
 	end
-	-- Balık -Z'ye bakar; 90° çevirince yan profili kameraya döner
-	model:PivotTo(CFrame.Angles(0, math.rad(90), 0))
-	model.Parent = vp
-
-	local center, size = model:GetBoundingBox()
-	local maxDim = math.max(size.X, size.Y, size.Z)
-	local cam = Instance.new("Camera")
-	cam.FieldOfView = 40
-	cam.CFrame = CFrame.lookAt(center.Position + Vector3.new(0, maxDim * 0.15, maxDim * 1.5), center.Position)
-	cam.Parent = vp
-	vp.CurrentCamera = cam
-end
-
-local function fishRow(index: number, fishId: string, protected: boolean)
-	local def = Fish[fishId]
-	if not def then
-		return
+	text(t, def and def.displayName or id, UDim2.new(1, -8, 0, 16), UDim2.fromOffset(4, 73), Color3.new(1, 1, 1), Enum.Font.GothamBold, 13)
+	text(t, money(def and def.sell or 0), UDim2.new(1, -8, 0, 16), UDim2.fromOffset(4, 91), GOLD, Enum.Font.GothamBlack, 14)
+	-- seçim işareti
+	local check = Instance.new("TextLabel")
+	check.AnchorPoint = Vector2.new(1, 0)
+	check.Position = UDim2.new(1, -4, 0, 8)
+	check.Size = UDim2.fromOffset(24, 24)
+	check.BackgroundColor3 = GREEN
+	check.Text = "✓"
+	check.Font = Enum.Font.GothamBlack
+	check.TextScaled = true
+	check.TextColor3 = Color3.new(1, 1, 1)
+	check.Visible = false
+	check.ZIndex = 3
+	corner(check, 12)
+	check.Parent = t
+	local function show()
+		local on = selected[i] == true
+		check.Visible = on
+		st.Thickness = on and 4 or 2
+		st.Color = on and GREEN or (rar and rar.color or MUTED)
+		t.BackgroundColor3 = on and Color3.fromRGB(40, 70, 60) or TILE
 	end
-	local rarity = (Rarities :: any)[def.rarity]
-	local rarityColor: Color3 = if rarity then rarity.color else Color3.new(1, 1, 1)
-
-	local row = Instance.new("Frame")
-	row.Name = "Slot" .. index
-	row.LayoutOrder = index
-	row.Size = UDim2.new(1, 0, 0, 68)
-	row.BackgroundColor3 = COLOR_ROW
-	corner(row, UDim.new(0, 10))
-	stroke(row, rarityColor, 1.5)
-	row.Parent = list
-
-	-- Sol kenarda nadirlik rengi şeridi
-	local stripe = Instance.new("Frame")
-	stripe.Size = UDim2.new(0, 5, 1, -16)
-	stripe.Position = UDim2.fromOffset(0, 8)
-	stripe.BackgroundColor3 = rarityColor
-	stripe.BorderSizePixel = 0
-	corner(stripe, UDim.new(1, 0))
-	stripe.Parent = row
-
-	fishViewport(row, fishId)
-
-	local name = def.displayName .. (if protected then "  🔒" else "")
-	local nameLabel = label(row, "FishName", name, Color3.new(1, 1, 1), Enum.Font.GothamBold)
-	nameLabel.Size = UDim2.new(1, -170, 0, 24)
-	nameLabel.Position = UDim2.fromOffset(84, 9)
-
-	local rarityLabel = label(row, "Rarity", def.rarity, rarityColor, Enum.Font.GothamBold)
-	rarityLabel.Size = UDim2.new(1, -170, 0, 18)
-	rarityLabel.Position = UDim2.fromOffset(84, 38)
-
-	local priceLabel = label(row, "Price", "$" .. def.sell, COLOR_PRICE, Enum.Font.GothamBlack)
-	priceLabel.TextXAlignment = Enum.TextXAlignment.Right
-	priceLabel.Size = UDim2.new(0, 72, 0, 24)
-	priceLabel.Position = UDim2.new(1, -84, 0, 9)
-
-	local incomeLabel = label(row, "Income", def.perMinute .. "$/min", COLOR_MUTED, Enum.Font.Gotham)
-	incomeLabel.TextXAlignment = Enum.TextXAlignment.Right
-	incomeLabel.Size = UDim2.new(0, 72, 0, 16)
-	incomeLabel.Position = UDim2.new(1, -84, 0, 39)
+	show()
+	t.Activated:Connect(function()
+		selected[i] = (not selected[i]) or nil
+		show()
+		refreshBar()
+	end)
+	t.Parent = grid
 end
 
-local function emptyRow(index: number, protected: boolean)
-	local row = Instance.new("Frame")
-	row.Name = "Slot" .. index
-	row.LayoutOrder = index
-	row.Size = UDim2.new(1, 0, 0, 40)
-	row.BackgroundColor3 = COLOR_EMPTY
-	corner(row, UDim.new(0, 10))
-	row.Parent = list
-
-	local value = if protected then "🔒 Korumalı slot (boş)" else "Boş slot"
-	local t = label(row, "Empty", value, COLOR_MUTED, Enum.Font.Gotham)
-	t.Size = UDim2.new(1, -24, 0, 18)
-	t.Position = UDim2.fromOffset(14, 11)
+local function emptyTile(i)
+	local t = Instance.new("Frame")
+	t.Name = "Empty" .. i
+	t.LayoutOrder = i
+	t.BackgroundColor3 = EMPTY
+	corner(t, 10)
+	local st = stroke(t, Color3.fromRGB(60, 78, 100), 1.5)
+	st.Transparency = 0.3
+	text(t, "empty", UDim2.new(1, 0, 0, 16), UDim2.new(0, 0, 0.5, -8), Color3.fromRGB(80, 98, 120), Enum.Font.GothamMedium, 13)
+	t.Parent = grid
 end
 
--- Veri gelince listeyi baştan çiz
-local function refresh(data: any)
-	for _, child in list:GetChildren() do
-		if child:IsA("Frame") then
-			child:Destroy()
+local function render()
+	spinning = {}
+	for _, c in grid:GetChildren() do
+		if c:IsA("GuiObject") then
+			c:Destroy()
 		end
 	end
-
-	local storage: { string } = if data then data.storage else {}
-	local slots = slotCount(data)
-	local protectedCount: number = if data and data.protectedSlots then data.protectedSlots else Boats.ProtectedSlots
-	local total = 0
-
 	for i = 1, math.max(slots, #storage) do
-		local protected = i <= protectedCount
-		local fishId = storage[i]
-		if fishId then
-			fishRow(i, fishId, protected)
-			total += if Fish[fishId] then Fish[fishId].sell else 0
+		if storage[i] then
+			tile(i, storage[i])
 		else
-			emptyRow(i, protected)
+			emptyTile(i)
 		end
 	end
-
-	titleLabel.Text = string.format("Envanter  %d/%d", #storage, slots)
-	badge.Text = string.format("%d/%d", #storage, slots)
-	badge.BackgroundColor3 = if #storage >= slots then COLOR_FULL else COLOR_ACCENT
-	totalLabel.Text = "Toplam değer: $" .. total
+	title.Text = "🎒 BACKPACK   " .. #storage .. "/" .. slots
+	refreshBar()
 end
 
--- Aç / kapat -------------------------------------------------------------------
+local function applyData(data)
+	if type(data) ~= "table" then
+		return
+	end
+	storage = data.storage or {}
+	slots = data.slots or ((Boats :: any)[data.boat] and (Boats :: any)[data.boat].slots) or 3
+	poolCount = data.pool and #data.pool or poolCount
+	selected = {}
+	badge.Text = #storage .. "/" .. slots
+	badge.BackgroundColor3 = #storage >= slots and FULL or ACCENT
+	if isOpen then
+		render()
+	end
+end
 
-local function setOpen(open: boolean)
+local function setOpen(open, auto)
 	isOpen = open
+	autoOpened = open and (auto == true) or false
 	panel.Visible = open
+	Theme.SetActive(toggleButton, open)
 	if open then
+		place = detectPlace()
+		render()
 		panelScale.Scale = 0.9
 		TweenService:Create(panelScale, TweenInfo.new(0.15, Enum.EasingStyle.Back), { Scale = 1 }):Play()
+	else
+		spinning = {}
+		selected = {}
 	end
 end
 
--- Yeni balık gelince buton zıplar
 local function pulse()
 	local s = toggleButton:FindFirstChildOfClass("UIScale")
-	if not s then
-		return
+	if s then
+		s.Scale = 1.25
+		TweenService:Create(s, TweenInfo.new(0.35, Enum.EasingStyle.Back), { Scale = 1 }):Play()
 	end
-	s.Scale = 1.25
-	TweenService:Create(s, TweenInfo.new(0.35, Enum.EasingStyle.Back), { Scale = 1 }):Play()
 end
 
+---------------------------------------------------------------------------------------------
 local function buildUI()
-	local gui = Instance.new("ScreenGui")
+	gui = Instance.new("ScreenGui")
 	gui.Name = "InventoryGui"
 	gui.ResetOnSpawn = false
+	gui.DisplayOrder = 8
 	gui.Parent = player:WaitForChild("PlayerGui")
 
-	-- Yuvarlak envanter butonu (sol kenar, ortada)
 	toggleButton = Instance.new("TextButton")
 	toggleButton.Name = "InventoryButton"
-	toggleButton.Size = UDim2.fromOffset(68, 68)
-	toggleButton.AnchorPoint = Vector2.new(0, 0.5)
-	toggleButton.Position = UDim2.new(0, 16, 0.5, 0)
-	toggleButton.BackgroundColor3 = COLOR_ACCENT
 	toggleButton.Text = "🐟"
 	toggleButton.TextScaled = true
 	toggleButton.Font = Enum.Font.GothamBold
-	toggleButton.TextColor3 = Color3.new(1, 1, 1)
-	corner(toggleButton, UDim.new(0.5, 0))
-	stroke(toggleButton, Color3.new(1, 1, 1), 3)
 	Instance.new("UIScale").Parent = toggleButton
-	local pad = Instance.new("UIPadding")
-	pad.PaddingTop = UDim.new(0, 12)
-	pad.PaddingBottom = UDim.new(0, 12)
-	pad.PaddingLeft = UDim.new(0, 12)
-	pad.PaddingRight = UDim.new(0, 12)
-	pad.Parent = toggleButton
 	toggleButton.Parent = gui
-	-- ortak tasarım (Theme): küçük cam buton, sol sütunda harita butonunun altında
-	local Theme = require(script.Parent:WaitForChild("Theme"))
 	Theme.StyleRound(toggleButton, "Fish")
 	toggleButton.AnchorPoint = Vector2.new(0, 0.5)
 	toggleButton.Position = Theme.LeftColumn(-1)
 
-	-- Butonun köşesinde doluluk rozeti (dolunca kırmızı)
 	badge = Instance.new("TextLabel")
 	badge.Name = "Badge"
 	badge.Size = UDim2.fromOffset(40, 22)
 	badge.AnchorPoint = Vector2.new(0.5, 0.5)
 	badge.Position = UDim2.new(1, 4, 0, 4)
-	badge.BackgroundColor3 = COLOR_ACCENT
+	badge.BackgroundColor3 = ACCENT
 	badge.TextColor3 = Color3.new(1, 1, 1)
 	badge.Font = Enum.Font.GothamBold
 	badge.TextScaled = true
 	badge.Text = "0/3"
-	corner(badge, UDim.new(1, 0))
+	badge.ZIndex = 3
+	corner(badge, 11)
 	stroke(badge, Color3.new(1, 1, 1), 2)
 	badge.Parent = toggleButton
 
-	-- Panel (butonun sağında açılır)
 	panel = Instance.new("Frame")
-	panel.Name = "InventoryPanel"
-	panel.AnchorPoint = Vector2.new(0, 0.5)
-	panel.Position = UDim2.new(0, 84, 0.5, 0)
-	panel.Size = UDim2.new(0.32, 0, 0.62, 0)
-	panel.BackgroundColor3 = COLOR_BG
-	panel.BackgroundTransparency = 0.05
+	panel.Name = "Backpack"
+	panel.AnchorPoint = Vector2.new(0.5, 0.5)
+	panel.Position = UDim2.fromScale(0.5, 0.56)
+	panel.Size = UDim2.new(0.62, 0, 0.66, 0)
+	panel.BackgroundColor3 = BG
+	panel.BackgroundTransparency = 0.04
 	panel.Visible = false
-	corner(panel, UDim.new(0, 14))
-	stroke(panel, COLOR_ACCENT, 2)
+	corner(panel, 16)
+	stroke(panel, ACCENT, 3)
 	panelScale = Instance.new("UIScale")
 	panelScale.Parent = panel
-	local limits = Instance.new("UISizeConstraint")
-	limits.MinSize = Vector2.new(260, 240)
-	limits.MaxSize = Vector2.new(360, 460)
-	limits.Parent = panel
+	local lim = Instance.new("UISizeConstraint")
+	lim.MinSize = Vector2.new(320, 300)
+	lim.MaxSize = Vector2.new(720, 470)
+	lim.Parent = panel
 	panel.Parent = gui
 
-	titleLabel = label(panel, "Title", "Envanter", Color3.new(1, 1, 1), Enum.Font.GothamBlack)
-	titleLabel.Size = UDim2.new(1, -70, 0, 28)
-	titleLabel.Position = UDim2.fromOffset(16, 12)
+	title = text(panel, "🎒 BACKPACK", UDim2.new(1, -70, 0, 30), UDim2.fromOffset(16, 10), Color3.new(1, 1, 1), Enum.Font.FredokaOne, 26, Enum.TextXAlignment.Left)
+	banner = text(panel, "", UDim2.new(1, -32, 0, 18), UDim2.fromOffset(16, 42), MUTED, Enum.Font.GothamBold, 14, Enum.TextXAlignment.Left)
 
 	local close = Instance.new("TextButton")
-	close.Name = "Close"
-	close.Size = UDim2.fromOffset(32, 32)
 	close.AnchorPoint = Vector2.new(1, 0)
 	close.Position = UDim2.new(1, -10, 0, 10)
-	close.BackgroundColor3 = COLOR_FULL
+	close.Size = UDim2.fromOffset(34, 34)
+	close.BackgroundColor3 = FULL
 	close.Text = "X"
-	close.TextColor3 = Color3.new(1, 1, 1)
 	close.Font = Enum.Font.GothamBlack
 	close.TextScaled = true
-	corner(close, UDim.new(0.5, 0))
+	close.TextColor3 = Color3.new(1, 1, 1)
+	corner(close, 17)
 	close.Parent = panel
 	close.Activated:Connect(function()
 		setOpen(false)
 	end)
 
-	list = Instance.new("ScrollingFrame")
-	list.Name = "List"
-	list.Position = UDim2.fromOffset(12, 52)
-	list.Size = UDim2.new(1, -24, 1, -100)
-	list.BackgroundTransparency = 1
-	list.BorderSizePixel = 0
-	list.ScrollBarThickness = 5
-	list.CanvasSize = UDim2.new()
-	list.AutomaticCanvasSize = Enum.AutomaticSize.Y
-	list.Parent = panel
-	local layout = Instance.new("UIListLayout")
-	layout.Padding = UDim.new(0, 8)
-	layout.SortOrder = Enum.SortOrder.LayoutOrder
-	layout.Parent = list
+	grid = Instance.new("ScrollingFrame")
+	grid.Position = UDim2.fromOffset(12, 68)
+	grid.Size = UDim2.new(1, -24, 1, -134)
+	grid.BackgroundTransparency = 1
+	grid.BorderSizePixel = 0
+	grid.ScrollBarThickness = 5
+	grid.CanvasSize = UDim2.new()
+	grid.AutomaticCanvasSize = Enum.AutomaticSize.Y
+	grid.Parent = panel
+	local lay = Instance.new("UIGridLayout")
+	lay.CellSize = UDim2.fromOffset(108, 112)
+	lay.CellPadding = UDim2.fromOffset(8, 8)
+	lay.SortOrder = Enum.SortOrder.LayoutOrder
+	lay.HorizontalAlignment = Enum.HorizontalAlignment.Center
+	lay.Parent = grid
 
-	-- Altta toplam satış değeri
-	totalLabel = label(panel, "Total", "Toplam değer: $0", COLOR_PRICE, Enum.Font.GothamBold)
-	totalLabel.Size = UDim2.new(1, -32, 0, 22)
-	totalLabel.AnchorPoint = Vector2.new(0, 1)
-	totalLabel.Position = UDim2.new(0, 16, 1, -14)
+	-- alt çubuk
+	local bar = Instance.new("Frame")
+	bar.AnchorPoint = Vector2.new(0, 1)
+	bar.Position = UDim2.new(0, 12, 1, -12)
+	bar.Size = UDim2.new(1, -24, 0, 50)
+	bar.BackgroundColor3 = Color3.fromRGB(26, 40, 58)
+	corner(bar, 12)
+	bar.Parent = panel
+	selLabel = text(bar, "", UDim2.new(0.3, -10, 1, -12), UDim2.fromOffset(12, 6), GOLD, Enum.Font.GothamBlack, 16, Enum.TextXAlignment.Left)
+	btnSelectAll = button(bar, "Select all", Color3.fromRGB(70, 90, 120))
+	btnSelectAll.AnchorPoint = Vector2.new(1, 0.5)
+	btnSelectAll.Position = UDim2.new(0.43, 0, 0.5, 0)
+	btnSelectAll.Size = UDim2.new(0.15, 0, 1, -12)
+	btnSelectAll:FindFirstChildOfClass("UITextSizeConstraint").MaxTextSize = 14
+	btnSelected = button(bar, "Sell selected", Color3.fromRGB(225, 150, 40))
+	btnSelected.AnchorPoint = Vector2.new(1, 0.5)
+	btnSelected.Position = UDim2.new(0.72, -4, 0.5, 0)
+	btnSelected.Size = UDim2.new(0.29, -6, 1, -12)
+	btnAll = button(bar, "Sell all", Color3.fromRGB(200, 110, 30))
+	btnAll.AnchorPoint = Vector2.new(1, 0.5)
+	btnAll.Position = UDim2.new(1, -6, 0.5, 0)
+	btnAll.Size = UDim2.new(0.27, -6, 1, -12)
+
+	btnSelectAll.Activated:Connect(function()
+		local list = selectedList()
+		if #list == #storage then
+			selected = {}
+		else
+			for i = 1, #storage do
+				selected[i] = true
+			end
+		end
+		render()
+	end)
+	btnSelected.Activated:Connect(function()
+		local list = selectedList()
+		if #list == 0 then
+			return
+		end
+		if place == "market" then
+			Remotes.Event("SellFish"):FireServer(list)
+		elseif place == "pool" then
+			Remotes.Event("PoolDeposit"):FireServer(list)
+		end
+	end)
+	btnAll.Activated:Connect(function()
+		if #storage == 0 then
+			return
+		end
+		if place == "market" then
+			Remotes.Event("SellFish"):FireServer(nil)
+		elseif place == "pool" then
+			Remotes.Event("PoolDeposit"):FireServer(nil)
+		end
+	end)
 end
 
 function Inventory.Init()
 	buildUI()
-	refresh(nil)
-
 	toggleButton.Activated:Connect(function()
 		setOpen(not isOpen)
 	end)
@@ -344,17 +484,46 @@ function Inventory.Init()
 			setOpen(not isOpen)
 		end
 	end)
-
-	Remotes.Event("DataUpdated").OnClientEvent:Connect(refresh)
+	Remotes.Event("DataUpdated").OnClientEvent:Connect(applyData)
 	Remotes.Event("FishCaught").OnClientEvent:Connect(pulse)
-
-	-- İlk veri (server henüz yüklemediyse nil döner, sonra DataUpdated gelir)
 	task.spawn(function()
 		local ok, data = pcall(function()
 			return Remotes.Function("GetPlayerData"):InvokeServer()
 		end)
-		if ok and data then
-			refresh(data)
+		if ok then
+			applyData(data)
+		end
+	end)
+	-- yer takibi: pazara gelince çanta kendiliğinden açılır, ayrılınca (kendiliğinden açıldıysa) kapanır
+	task.spawn(function()
+		while true do
+			task.wait(0.3)
+			if player:GetAttribute("InCutscene") then
+				continue
+			end
+			local now = detectPlace()
+			if now ~= place then
+				local before = place
+				place = now
+				if now == "market" and not isOpen and #storage > 0 then
+					setOpen(true, true)
+				elseif before == "market" and isOpen and autoOpened then
+					setOpen(false)
+				elseif isOpen then
+					refreshBar()
+				end
+			end
+		end
+	end)
+	RunService.RenderStepped:Connect(function(dt)
+		if not isOpen then
+			return
+		end
+		for _, s in spinning do
+			s.a += dt * 0.7
+			if s.model.Parent then
+				s.model:PivotTo(CFrame.Angles(0, s.a, 0) * s.base)
+			end
 		end
 	end)
 end

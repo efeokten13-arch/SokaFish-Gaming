@@ -104,3 +104,28 @@ bindable("DevGuideEvent").Event:Connect(function(event, name)
 		GuideService.Event(player, event)
 	end
 end)
+
+-- Çantaya test balığı koy (sadece Studio):
+--   game.ServerStorage.DevGiveFish:Fire(nil, { "Cod", "Tuna", "GoldenFish" })   -> çanta = bu liste
+--   game.ServerStorage.DevGiveFish:Fire(nil, nil, "market")                      -> ayrıca balık pazarına ışınla
+bindable("DevGiveFish").Event:Connect(function(name, list, where)
+	local player = (name and Players:FindFirstChild(name)) or Players:GetPlayers()[1]
+	local d = player and DataService.Wait(player)
+	if not d then
+		return
+	end
+	if type(list) == "table" then
+		d.storage = table.clone(list)
+	end
+	DataService.Push(player)
+	if where == "market" then
+		local market = workspace:FindFirstChild("FishMarket")
+		for _, x in market and market:GetDescendants() or {} do
+			if x.Name == "SellCounter" and x:IsA("BasePart") and player.Character then
+				player.Character:PivotTo(CFrame.new(x.Position + Vector3.new(0, 3, 8)))
+				break
+			end
+		end
+	end
+	print("[DevAdmin] storage =", table.concat(d.storage, ", "))
+end)

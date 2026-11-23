@@ -189,8 +189,88 @@ local function take(player: Player, index: any)
 	end
 end
 
+-- Çantadan seçili balıkları havuza koy (client: PoolDeposit(slotList); nil = sığdığı kadar). Kendi havuzunun yanında olmalı.
+local POOL_RANGE = 90
+local function depositSelected(player: Player, slots: any)
+	local data = DataService.Get(player) :: any
+	local island = islandOf(player)
+	local pool = island and island:FindFirstChild("Pool") :: BasePart?
+	local root = player.Character and player.Character:FindFirstChild("HumanoidRootPart") :: BasePart?
+	if not data or not pool or not root then
+		return
+	end
+	if (root.Position - pool.Position).Magnitude > POOL_RANGE then
+		DataService.Notify(player, "Go to your island's pool first!", RED)
+		return
+	end
+	if slots == nil then
+		deposit(player, island :: Instance)
+		return
+	end
+	if type(slots) ~= "table" then
+		return
+	end
+	local pick = {}
+	for _, v in slots do
+		if type(v) == "number" and v == v then
+			local i = math.floor(v)
+			if data.storage[i] and not table.find(pick, i) then
+				table.insert(pick, i)
+			end
+		end
+	end
+	local free = Economy.PoolCapacity - #data.pool
+	if free <= 0 then
+		DataService.Notify(player, "Your pool is full! Sell a pool fish from the TV first.", RED)
+		return
+	end
+	table.sort(pick)
+	while #pick > free do
+		table.remove(pick)
+	end
+	local moved = {}
+	for k = #pick, 1, -1 do
+		table.insert(moved, 1, table.remove(data.storage, pick[k]) :: string)
+	end
+	for _, id in moved do
+		table.insert(data.pool, id)
+	end
+	if #moved > 0 then
+		DataService.Notify(player, #moved .. " fish added to your pool! Earning $" .. PoolService.IncomePerMinute(data) .. "/minute", GREEN)
+		DataService.Push(player)
+		refreshVisuals(island :: Instance, data)
+		GuideService.Event(player, "pool")
+	end
+end
+
+-- Havuz TV'sinden: havuzdaki balığı doğrudan sat
+local function sellFromPool(player: Player, index: any)
+	local data = DataService.Get(player) :: any
+	if not data or type(index) ~= "number" then
+		return
+	end
+	index = math.floor(index)
+	local fishId = data.pool[index]
+	if not fishId then
+		return
+	end
+	local price = Fish[fishId] and Fish[fishId].sell or 0
+	table.remove(data.pool, index)
+	data.money += price
+	local def = Fish[fishId]
+	DataService.Notify(player, "Sold " .. (def and def.displayName or fishId) .. " for $" .. price, Color3.fromRGB(255, 214, 80))
+	Remotes.Event("CoinBurst"):FireClient(player, price)
+	DataService.Push(player)
+	local island = islandOf(player)
+	if island then
+		refreshVisuals(island, data)
+	end
+end
+
 function PoolService.Init()
 	Remotes.Event("PoolTake").OnServerEvent:Connect(take)
+	Remotes.Event("PoolDeposit").OnServerEvent:Connect(depositSelected)
+	Remotes.Event("PoolSell").OnServerEvent:Connect(sellFromPool)
 	task.spawn(function()
 		local folder = Workspace:WaitForChild("PrivateIslands", 60)
 		if not folder then

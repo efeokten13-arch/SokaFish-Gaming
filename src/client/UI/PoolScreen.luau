@@ -226,19 +226,36 @@ local function card(i, fishId)
 	earn.Parent = c
 	round(earn, 10)
 
-	local takeBtn = Instance.new("TextButton")
-	takeBtn.AnchorPoint = Vector2.new(0.5, 1)
-	takeBtn.Position = UDim2.new(0.5, 0, 1, -10)
-	takeBtn.Size = UDim2.new(1, -20, 0, 50)
-	takeBtn.BackgroundColor3 = Color3.fromRGB(70, 170, 90)
-	takeBtn.Font = Enum.Font.FredokaOne
-	takeBtn.TextSize = 22
-	takeBtn.TextColor3 = Color3.new(1, 1, 1)
-	takeBtn.Text = "🎒 Take"
-	takeBtn.Parent = c
-	round(takeBtn, 10)
-	takeBtn.Activated:Connect(function()
-		Remotes.Event("PoolTake"):FireServer(i)
+	-- Sat (eskiden "Take"): ilk dokunuş "Sure?" sorar, 2.5 sn içinde ikinci dokunuş satar
+	local sellBtn = Instance.new("TextButton")
+	sellBtn.AnchorPoint = Vector2.new(0.5, 1)
+	sellBtn.Position = UDim2.new(0.5, 0, 1, -10)
+	sellBtn.Size = UDim2.new(1, -20, 0, 50)
+	sellBtn.BackgroundColor3 = Color3.fromRGB(225, 150, 40)
+	sellBtn.Font = Enum.Font.FredokaOne
+	sellBtn.TextSize = 22
+	sellBtn.TextColor3 = Color3.new(1, 1, 1)
+	local normalText = "💰 Sell " .. money(def.sell)
+	sellBtn.Text = normalText
+	sellBtn.Parent = c
+	round(sellBtn, 10)
+	local armed = 0
+	sellBtn.Activated:Connect(function()
+		if os.clock() - armed < 2.5 then
+			armed = 0
+			sellBtn.Text = "Selling..."
+			Remotes.Event("PoolSell"):FireServer(i)
+			return
+		end
+		armed = os.clock()
+		sellBtn.Text = "Sure? Tap again"
+		sellBtn.BackgroundColor3 = Color3.fromRGB(220, 80, 60)
+		task.delay(2.5, function()
+			if sellBtn.Parent and os.clock() - armed >= 2.4 then
+				sellBtn.Text = normalText
+				sellBtn.BackgroundColor3 = Color3.fromRGB(225, 150, 40)
+			end
+		end)
 	end)
 	c.Parent = grid
 end

@@ -37,6 +37,63 @@ local function sellAll(player: Player)
 	DataService.Push(player)
 end
 
+-- Oyuncu balık pazarının (bir SellCounter'ın) yakınında mı?
+local SELL_RANGE = 45
+function SellService.NearMarket(player: Player): boolean
+	local root = player.Character and player.Character:FindFirstChild("HumanoidRootPart") :: BasePart?
+	local market = Workspace:FindFirstChild("FishMarket")
+	if not root or not market then
+		return false
+	end
+	for _, d in market:GetDescendants() do
+		if d.Name == "SellCounter" and d:IsA("BasePart") and (d.Position - root.Position).Magnitude < SELL_RANGE then
+			return true
+		end
+	end
+	return false
+end
+
+-- Çantadan seçili balıkları sat (client: SellFish(slotList) ; slotList nil = hepsi)
+local function sellSelected(player: Player, slots: any)
+	local data = DataService.Get(player)
+	if not data then
+		return
+	end
+	if not SellService.NearMarket(player) then
+		DataService.Notify(player, "Go to the Fish Market to sell your fish!", Color3.fromRGB(255, 140, 120))
+		return
+	end
+	if slots == nil then
+		sellAll(player)
+		return
+	end
+	if type(slots) ~= "table" then
+		return
+	end
+	local pick = {}
+	for _, v in slots do
+		if type(v) == "number" and v == v then
+			local i = math.floor(v)
+			if data.storage[i] and not table.find(pick, i) then
+				table.insert(pick, i)
+			end
+		end
+	end
+	if #pick == 0 then
+		return
+	end
+	table.sort(pick, function(a, b)
+		return a > b
+	end)
+	local total = 0
+	for _, i in pick do
+		total += SellService.SellSlot(data, i)
+	end
+	DataService.Notify(player, "Sold " .. #pick .. " fish for $" .. total, Color3.fromRGB(255, 214, 80))
+	Remotes.Event("CoinBurst"):FireClient(player, total)
+	DataService.Push(player)
+end
+
 local function hook(counter: Instance)
 	if not counter:IsA("BasePart") or counter.Name ~= "SellCounter" or counter:FindFirstChild("SellPrompt") then
 		return
@@ -54,6 +111,7 @@ end
 
 -- Kıyıdaki balık pazarı (Workspace.FishMarket): ada tarafında ve iskele tarafında birer SellCounter
 function SellService.Init()
+	Remotes.Event("SellFish").OnServerEvent:Connect(sellSelected)
 	task.spawn(function()
 		local market = Workspace:WaitForChild("FishMarket", 60)
 		if not market then

@@ -38,6 +38,9 @@ local EVENTS = {
 	"GuideStep", -- server -> client: rehber adımı (id, görev yazısı, havuz parçası)
 	"PracticeState", -- server -> client: atış eğitimi durumu (kind, aşama, vuruş, korsanın cümlesi)
 	"PracticeFinale", -- server -> client: hedef gemi battı, anime patlama sahnesi (gemi CFrame, oyuncu id)
+	"SellFish", -- client -> server: çantadaki balıkları sat (slot numaraları listesi; nil = hepsi). Balık pazarının yanında olmalı
+	"PoolDeposit", -- client -> server: çantadaki balıkları havuza koy (slot listesi; nil = sığdığı kadar). Kendi havuzunun yanında olmalı
+	"PoolSell", -- client -> server: havuzdaki i. balığı sat (havuz TV'sinden)
 }
 
 local FUNCTIONS = {
