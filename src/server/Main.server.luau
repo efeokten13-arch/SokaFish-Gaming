@@ -22,6 +22,8 @@ local services = {
 	require(Server.Treasure.TreasureService),
 	require(Server.Shop.RodShopService),
 	require(Server.Weather.StormService),
+	require(Server.Fish.SchoolService),
+	require(Server.Map.LeaderboardService),
 }
 
 for _, s in services do

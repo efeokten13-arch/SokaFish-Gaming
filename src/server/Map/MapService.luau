@@ -12,6 +12,8 @@
 local Workspace = game:GetService("Workspace")
 local Players = game:GetService("Players")
 
+local IslandBanner = require(script.Parent:WaitForChild("IslandBanner"))
+
 local MapService = {}
 
 local islandOwners: { [Instance]: Player } = {}
@@ -78,6 +80,7 @@ function MapService.AssignIsland(player: Player): Instance?
 			islandOwners[island] = player
 			island:SetAttribute("OwnerUserId", player.UserId)
 			setOwnerLabel(island, player.DisplayName)
+			IslandBanner.Set(island, player) -- iskelede isim tabelası + bayrak
 			return island
 		end
 	end
@@ -92,6 +95,7 @@ function MapService.Init()
 				islandOwners[island] = nil
 				island:SetAttribute("OwnerUserId", nil)
 				setOwnerLabel(island, nil)
+				IslandBanner.Set(island, nil)
 			end
 		end
 	end)

@@ -18,6 +18,8 @@ local FishService = require(Server.Fish.FishService)
 local GuideService = require(Server.Guide.GuideService)
 local StormService = require(Server.Weather.StormService)
 local StormsCfg = require(game:GetService("ReplicatedStorage").Shared.Config.Storms)
+local SchoolService = require(Server.Fish.SchoolService)
+local SchoolsCfg = require(Config:WaitForChild("FishSchools"))
 local DataService = require(Server.Data.DataService)
 local BoatService = require(Server.Boat.BoatService)
 local FishingVisuals = require(Server.Fish.FishingVisuals)
@@ -146,6 +148,10 @@ local function onCast(player: Player, spot: any)
 	-- yağmur bulutunun altı: nadir balık şansı artar
 	if StormService.IsUnderStorm(spot.Position) then
 		luck *= StormsCfg.Luck
+	end
+	-- balık sürüsünün içi (martılar + zıplayan balıklar): nadir balık şansı artar
+	if SchoolService.IsInSchool(spot.Position) then
+		luck *= SchoolsCfg.Luck
 	end
 	local fishId = FishService.Roll(ocean, spotType, luck)
 	if not fishId then
