@@ -25,6 +25,7 @@ local BoatService = require(Server.Boat.BoatService)
 local FishingVisuals = require(Server.Fish.FishingVisuals)
 local FishingWater = require(Shared:WaitForChild("FishingWater"))
 local Loot = require(Server.Treasure.Loot)
+local AltarService = require(Server.Map.AltarService)
 
 local FishingService = {}
 
@@ -90,6 +91,34 @@ local function endSession(player: Player, reason: string)
 	clearOpenCast(player)
 	FishingVisuals.End(player)
 	Remotes.Event("FishingEnded"):FireClient(player, reason)
+end
+
+-- Balık çantaya girer (normal çekme sonunda ve kutsamalı atışta doğrudan)
+local function landFish(player: Player, s: Session)
+	local data = DataService.Get(player)
+	if not data or #data.storage >= BoatService.GetSlotCount(data.boat) then
+		endSession(player, "full")
+		return
+	end
+
+	clearOpenCast(player)
+	table.insert(data.storage, s.fishId)
+	-- koleksiyon kitabı: hangi türden kaç tane tutuldu
+	local caught = (data :: any).caught
+	caught[s.fishId] = (caught[s.fishId] or 0) + 1
+	sessions[player] = nil
+	FishingVisuals.Caught(player, s.fishId)
+	-- ikinci değer: bu tür ilk kez mi tutuldu (client büyük gösterim yapar)
+	Remotes.Event("FishCaught"):FireClient(player, s.fishId, caught[s.fishId] == 1)
+	-- nadir balık: düşük ihtimalle inci (Config/Items.FishPearls)
+	local def = Fish[s.fishId]
+	local pearls = if def then Loot.FishPearls(player, def.rarity) else 0
+	if pearls > 0 then
+		DataService.Notify(player, "🦪 Lucky! +" .. pearls .. " pearl" .. (if pearls > 1 then "s" else "") .. " from the fish", Color3.fromRGB(205, 150, 255))
+	end
+	AltarService.OnCaught(player, s.fishId)
+	DataService.Push(player)
+	GuideService.Event(player, "catch")
 end
 
 local function onCast(player: Player, spot: any)
@@ -159,7 +188,9 @@ local function onCast(player: Player, spot: any)
 	if SchoolService.IsInSchool(spot.Position) then
 		luck *= SchoolsCfg.Luck
 	end
-	local fishId = FishService.Roll(ocean, spotType, luck)
+	-- tapınak kutsaması: bu atış kesin Golden Fish (Map/AltarService)
+	local forced = AltarService.ForcedFish(player)
+	local fishId = forced or FishService.Roll(ocean, spotType, luck)
 	if not fishId then
 		Remotes.Event("FishingEnded"):FireClient(player, "nofish")
 		return
@@ -169,8 +200,19 @@ local function onCast(player: Player, spot: any)
 	sessions[player] = session
 	FishingVisuals.Cast(player, spot, data.rod)
 
-	task.delay(rng:NextNumber(Cfg.WaitMin, Cfg.WaitMax), function()
+	-- kutsamalı atış: client su altı sahnesini oynar, sahne bitince balık doğrudan yakalanır (BAS / çekme yok)
+	local waitTime = rng:NextNumber(Cfg.WaitMin, Cfg.WaitMax)
+	if forced then
+		waitTime = Cfg.GoldenCastWait
+		Remotes.Event("GoldenCast"):FireClient(player, spot.Position)
+	end
+	task.delay(waitTime, function()
 		if sessions[player] ~= session or session.state ~= "waiting" then
+			return
+		end
+		-- kutsamalı atış: tıklama / çekme yok, Golden Fish doğrudan çantaya girer
+		if forced then
+			landFish(player, session)
 			return
 		end
 		session.state = "bite"
@@ -237,29 +279,7 @@ local function onReel(player: Player, success: any)
 		return
 	end
 
-	local data = DataService.Get(player)
-	if not data or #data.storage >= BoatService.GetSlotCount(data.boat) then
-		endSession(player, "full")
-		return
-	end
-
-	clearOpenCast(player)
-	table.insert(data.storage, s.fishId)
-	-- koleksiyon kitabı: hangi türden kaç tane tutuldu
-	local caught = (data :: any).caught
-	caught[s.fishId] = (caught[s.fishId] or 0) + 1
-	sessions[player] = nil
-	FishingVisuals.Caught(player, s.fishId)
-	-- ikinci değer: bu tür ilk kez mi tutuldu (client büyük gösterim yapar)
-	Remotes.Event("FishCaught"):FireClient(player, s.fishId, caught[s.fishId] == 1)
-	-- nadir balık: düşük ihtimalle inci (Config/Items.FishPearls)
-	local def = Fish[s.fishId]
-	local pearls = if def then Loot.FishPearls(player, def.rarity) else 0
-	if pearls > 0 then
-		DataService.Notify(player, "🦪 Lucky! +" .. pearls .. " pearl" .. (if pearls > 1 then "s" else "") .. " from the fish", Color3.fromRGB(205, 150, 255))
-	end
-	DataService.Push(player)
-	GuideService.Event(player, "catch")
+	landFish(player, s)
 end
 
 function FishingService.Init()

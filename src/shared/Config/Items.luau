@@ -60,6 +60,14 @@ Items.FishPearls = {
 	Legendary = { chance = 0.25, min = 1, max = 3 },
 }
 
+-- Balık fedası (2. ada, Temple Keeper): Epic balık ver -> sonraki tuttuğun balık Golden Fish
+Items.Altar = {
+	Rarity = "Epic", -- feda edilebilen nadirlik (çantadaki en ucuzu alınır)
+	RewardFish = "GoldenFish", -- kutsamanın garanti ettiği balık (Config/Fish)
+	BlessAt = 6.2, -- sahnede altın ışığın oyuncuya indiği an (sn) -> parıltı başlar
+	Duration = 8.5, -- sahnenin toplam süresi (sn) -> veri gönderilir
+}
+
 function Items.TierRank(tier: string): number
 	return table.find(Items.TierOrder, tier) or 1
 end

@@ -46,6 +46,8 @@ local EVENTS = {
 	-- Eşyalar
 	"EquipTool", -- client -> server: dümen çarkından araç seç ("Rod" | nil = elleri boşalt)
 	"LootReveal", -- server -> client: sandık / enkaz açıldı (tür "chest"|"wreck", model, ödüller {id, amount, tier}, en nadir tier)
+	"GoldenCast", -- server -> client: kutsamalı atış, Golden Fish sahnesini oynat (oltanın düşeceği su noktası)
+	"AltarSacrifice", -- server -> client: balık fedası sahnesi (fishId, sunak parçası, Temple Keeper modeli)
 	"LootRevealDone", -- client -> server: oyuncu dokunarak sandığı açtı (model) -> server kapağı açar, veriyi gönderir
 }
 

@@ -1166,7 +1166,7 @@ function ReelingController.Init()
 
 		-- Server cevap vermezse takılı kalma
 		local waited = os.clock() - phaseSince
-		if (phase == "waiting" and waited > Cfg.WaitMax + Cfg.BiteWindow + 3)
+		if (phase == "waiting" and waited > math.max(Cfg.WaitMax, Cfg.GoldenCastWait or 0) + Cfg.BiteWindow + 3) -- kutsamalı atış daha uzun bekler
 			or ((phase == "hooking" or phase == "sent") and waited > 4)
 		then
 			finish("Bağlantı sorunu, tekrar dene")

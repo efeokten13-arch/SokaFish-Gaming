@@ -47,7 +47,8 @@ export type PlayerData = {
 	mermaidDone: boolean?, -- deniz kızı Marina'nın 2. ada öğreticisi bitti mi
 	practiceDone: boolean?, -- kapı arkasındaki atış görevinde düşman gemisini batırdı mı
 	hasGateKey: boolean?, -- kale kapısının anahtarı (deniz kızı görevinden; görev henüz yapılmadı, dev komutuyla verilir)
-	island3Unlocked: boolean?, -- atış görevi bitti, 3. ada açıldı (3. ada henüz yapılmadı)
+	island3Unlocked: boolean?,
+	goldenBlessing: boolean?, -- tapınakta Epic balık feda edildi: sonraki tutulan balık Golden Fish (Map/AltarService) -- atış görevi bitti, 3. ada açıldı (3. ada henüz yapılmadı)
 	starterGrant: boolean?, -- eski kayıtlara bir kez başlangıç parası vermek için
 	lastOnline: number,
 }
@@ -91,6 +92,7 @@ function DataService.Payload(player: Player): any
 		pearls = data.pearls or 0,
 		wood = data.wood or 0,
 		metal = data.metal or 0,
+		goldenBlessing = data.goldenBlessing == true,
 		storage = table.clone(data.storage),
 		slots = if boat then boat.slots else 3,
 		protectedSlots = Boats.ProtectedSlots,

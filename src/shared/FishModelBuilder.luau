@@ -949,7 +949,9 @@ function FishModelBuilder.Build(fishId: string, sizeMul: number?): Model?
 		return nil
 	end
 	local look = def.look
-	local mul = sizeMul or 1
+	-- nadirliğe göre büyüklük (Config/Rarities size): Common 1.4x ... Legendary 2.7x
+	local rar = (Rarities :: any)[def.rarity]
+	local mul = (sizeMul or 1) * (rar and rar.size or 1)
 	local L = look.length * mul
 	local model = Instance.new("Model")
 	model.Name = fishId

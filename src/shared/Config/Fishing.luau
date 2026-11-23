@@ -16,6 +16,7 @@ local Fishing = {
 	-- Bekleme ve vurma
 	WaitMin = 1.2, -- olta atıldıktan sonra en az bekleme (sn)
 	WaitMax = 3.0, -- en fazla bekleme (sn)
+	GoldenCastWait = 6.6, -- tapınak kutsamalı atış: su altı sahnesi (client/Effects/GoldenCast) bitince Golden Fish doğrudan yakalanır (tıklama yok)
 	BiteWindow = 0.9, -- "BAS!" çıktıktan sonra basmak için süre (sn)
 	LatencyGrace = 0.35, -- internet gecikmesi için tolerans (sn)
 
