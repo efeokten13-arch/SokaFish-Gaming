@@ -46,6 +46,7 @@ local EVENTS = {
 	-- Eşyalar
 	"EquipTool", -- client -> server: dümen çarkından araç seç ("Rod" | nil = elleri boşalt)
 	"LootReveal", -- server -> client: sandık / enkaz açıldı (tür "chest"|"wreck", model, ödüller {id, amount, tier}, en nadir tier)
+	"LootRevealDone", -- client -> server: oyuncu dokunarak sandığı açtı (model) -> server kapağı açar, veriyi gönderir
 }
 
 local FUNCTIONS = {

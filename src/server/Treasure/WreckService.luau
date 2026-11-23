@@ -16,7 +16,23 @@ local WreckService = {}
 
 local WATER_Y = -0.6 -- 2. adada su yüzeyi
 local WRECK_NAMES = { Shipwreck = true, BigShipwreck = true }
-local PUSH_DELAY = 5.0
+local PUSH_DELAY = 3.6 -- client "açıldı" dedikten sonra (LootRevealDone)
+local FALLBACK = 40
+
+local pending: { [Player]: Instance } = {}
+
+local function finish(player: Player, pile: Instance?)
+	local p = pending[player]
+	if not p or (pile ~= nil and p ~= pile) then
+		return
+	end
+	pending[player] = nil
+	task.delay(PUSH_DELAY, function()
+		if player.Parent then
+			DataService.Push(player)
+		end
+	end)
+end
 
 local used: { [Player]: { [Instance]: number } } = {}
 
@@ -95,10 +111,12 @@ local function onSalvage(player: Player, pile: Model)
 	mine[pile] = now
 	local rewards, top = Loot.Roll("wreck")
 	Loot.Grant(player, rewards)
+	finish(player, nil)
+	pending[player] = pile
 	Remotes.Event("LootReveal"):FireClient(player, "wreck", pile, rewards, top)
-	task.delay(PUSH_DELAY, function()
-		if player.Parent then
-			DataService.Push(player)
+	task.delay(FALLBACK, function()
+		if pending[player] == pile then
+			finish(player, pile)
 		end
 	end)
 end
@@ -134,6 +152,11 @@ function WreckService.Init()
 		end
 	end
 	folder.Parent = atoll
+	Remotes.Event("LootRevealDone").OnServerEvent:Connect(function(player, model)
+		if typeof(model) == "Instance" then
+			finish(player, model)
+		end
+	end)
 	Players.PlayerRemoving:Connect(function(p)
 		used[p] = nil
 	end)

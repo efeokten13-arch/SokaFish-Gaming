@@ -1,8 +1,9 @@
 --!strict
 -- Hazine sandıkları ("TreasureChest" tag'li modeller): basılı tutup aç, 3 ödül kazan (Config/Items.Chest).
 -- Her oyuncu her sandığı RespawnMinutes'ta bir açabilir.
--- Akış: ödüller hemen seçilip veriye yazılır -> açan oyuncuya LootReveal (yakınlaşma, sallanma, renkli ışık:
---   client/Effects/LootReveal) -> sallanma bitince kapak açılır (herkes görür) -> kartlar uçunca HUD güncellenir.
+-- Akış: ödüller hemen seçilip veriye yazılır -> açan oyuncuya LootReveal (Clash of Clans tarzı dokunarak açma:
+--   client/Effects/LootReveal) -> oyuncu son dokunuşu yapınca client "LootRevealDone" der -> kapak açılır
+--   (herkes görür) -> kartlar uçunca HUD güncellenir. Client cevap vermezse FALLBACK sn sonra kendiliğinden.
 local CollectionService = game:GetService("CollectionService")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local TweenService = game:GetService("TweenService")
@@ -14,8 +15,26 @@ local DataService = require(script.Parent.Parent.Data.DataService)
 local Remotes = require(ReplicatedStorage.Shared:WaitForChild("Remotes"))
 local Loot = require(script.Parent.Loot)
 
-local LID_DELAY = 2.15 -- client'ta sandık yere çakılınca (LootReveal TIMING.chest zoom+shake = 2.1 sn) kapak açılır
-local PUSH_DELAY = 6.3 -- ödül kartları uçunca para / inci sayacı güncellenir
+local PUSH_DELAY = 3.6 -- kapak açıldıktan sonra kartlar uçunca para / inci sayacı güncellenir
+local FALLBACK = 40 -- client "açıldı" demezse bu kadar sn sonra kapak açılır, veri gönderilir
+
+local animateLidRef: (Model, Color3?) -> ()
+local pending: { [Player]: { model: Model, color: Color3?, done: boolean } } = {}
+
+local function finish(player: Player, model: Instance?)
+	local p = pending[player]
+	if not p or p.done or (model ~= nil and p.model ~= model) then
+		return
+	end
+	p.done = true
+	pending[player] = nil
+	animateLidRef(p.model, p.color)
+	task.delay(PUSH_DELAY, function()
+		if player.Parent then
+			DataService.Push(player)
+		end
+	end)
+end
 
 local TreasureService = {}
 
@@ -49,6 +68,8 @@ local function animateLid(model: Model, color: Color3?)
 	end)
 end
 
+animateLidRef = animateLid
+
 local function onOpen(player: Player, model: Model)
 	local data = DataService.Get(player)
 	if not data then
@@ -69,11 +90,13 @@ local function onOpen(player: Player, model: Model)
 	mine[model] = now
 	local rewards, top = Loot.Roll("chest", model:GetAttribute("Tier") :: string?)
 	Loot.Grant(player, rewards)
+	finish(player, nil) -- önceki açılış yarım kaldıysa onu bitir
+	local entry = { model = model, color = (Items.TierColors :: any)[top], done = false }
+	pending[player] = entry
 	Remotes.Event("LootReveal"):FireClient(player, "chest", model, rewards, top)
-	task.delay(LID_DELAY, animateLid, model, (Items.TierColors :: any)[top])
-	task.delay(PUSH_DELAY, function()
-		if player.Parent then
-			DataService.Push(player)
+	task.delay(FALLBACK, function()
+		if pending[player] == entry then
+			finish(player, model)
 		end
 	end)
 end
@@ -104,8 +127,14 @@ function TreasureService.Init()
 		setup(m)
 	end
 	CollectionService:GetInstanceAddedSignal("TreasureChest"):Connect(setup)
+	Remotes.Event("LootRevealDone").OnServerEvent:Connect(function(player, model)
+		if typeof(model) == "Instance" then
+			finish(player, model)
+		end
+	end)
 	Players.PlayerRemoving:Connect(function(p)
 		opened[p] = nil
+		pending[p] = nil
 	end)
 end
 
