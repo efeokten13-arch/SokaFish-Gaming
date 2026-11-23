@@ -396,15 +396,41 @@ local function bobberFx(rarity: string)
 	local foam = Instance.new("ParticleEmitter")
 	foam.Texture = "rbxasset://textures/particles/smoke_main.dds"
 	foam.Color = ColorSequence.new(Color3.fromRGB(245, 252, 255))
-	foam.Size = NumberSequence.new({ NumberSequenceKeypoint.new(0, 0.6), NumberSequenceKeypoint.new(1, 2.6) })
-	foam.Transparency = NumberSequence.new({ NumberSequenceKeypoint.new(0, 0.25), NumberSequenceKeypoint.new(1, 1) })
-	foam.Lifetime = NumberRange.new(0.6, 1)
-	foam.Rate = 22
-	foam.Speed = NumberRange.new(2, 4)
-	foam.SpreadAngle = Vector2.new(70, 70)
-	foam.Acceleration = Vector3.new(0, -6, 0)
+	foam.Size = NumberSequence.new({ NumberSequenceKeypoint.new(0, 1.2), NumberSequenceKeypoint.new(1, 4.5) })
+	foam.Transparency = NumberSequence.new({ NumberSequenceKeypoint.new(0, 0.05), NumberSequenceKeypoint.new(0.6, 0.4), NumberSequenceKeypoint.new(1, 1) })
+	foam.Lifetime = NumberRange.new(0.8, 1.4)
+	foam.Rate = 60
+	foam.Speed = NumberRange.new(3, 6)
+	foam.SpreadAngle = Vector2.new(80, 80)
+	foam.Acceleration = Vector3.new(0, -8, 0)
+	foam.RotSpeed = NumberRange.new(-60, 60)
 	foam.Parent = att
 	table.insert(fx, foam)
+	-- su yüzeyinde yayılan beyaz halka köpük
+	local ring = Instance.new("ParticleEmitter")
+	ring.Texture = "rbxasset://textures/particles/smoke_main.dds"
+	ring.Color = ColorSequence.new(Color3.new(1, 1, 1))
+	ring.Orientation = Enum.ParticleOrientation.VelocityPerpendicular
+	ring.EmissionDirection = Enum.NormalId.Top
+	ring.Speed = NumberRange.new(0.01)
+	ring.Size = NumberSequence.new({ NumberSequenceKeypoint.new(0, 1.5), NumberSequenceKeypoint.new(1, 7) })
+	ring.Transparency = NumberSequence.new({ NumberSequenceKeypoint.new(0, 0.15), NumberSequenceKeypoint.new(1, 1) })
+	ring.Lifetime = NumberRange.new(1, 1.4)
+	ring.Rate = 6
+	ring.Parent = att
+	table.insert(fx, ring)
+	-- sıçrayan damlacıklar
+	local drops = Instance.new("ParticleEmitter")
+	drops.Color = ColorSequence.new(Color3.fromRGB(210, 235, 255))
+	drops.Size = NumberSequence.new({ NumberSequenceKeypoint.new(0, 0.35), NumberSequenceKeypoint.new(1, 0) })
+	drops.Lifetime = NumberRange.new(0.4, 0.7)
+	drops.Rate = 35
+	drops.Speed = NumberRange.new(6, 10)
+	drops.SpreadAngle = Vector2.new(40, 40)
+	drops.EmissionDirection = Enum.NormalId.Top
+	drops.Acceleration = Vector3.new(0, -35, 0)
+	drops.Parent = att
+	table.insert(fx, drops)
 	local rar = (Rarities :: any)[rarity]
 	if rar and (rarity == "Epic" or rarity == "Legendary") then
 		local glow = Instance.new("ParticleEmitter")
@@ -695,14 +721,17 @@ end
 -- Input --------------------------------------------------------------------
 
 local tap: () -> () -- aşağıda tanımlanıyor (önceden bildirildi)
+local chooseCastTarget: () -> any
+local faceTowards: (Vector3) -> ()
 
 local function press()
 	holding = true
 	if phase == "idle" then
-		local target: any = nearSpot or openWaterPoint
+		local target: any = chooseCastTarget()
 		if not target then
 			return
 		end
+		faceTowards(if typeof(target) == "Vector3" then target else target.Position)
 		phase = "waiting"
 		setState("Bekleniyor...", "Bekle")
 		Remotes.Event("CastRequest"):FireServer(target)
@@ -809,13 +838,72 @@ local function findOpenWater(): Vector3?
 	end
 	dir = Vector3.new(dir.X, 0, dir.Z).Unit
 	local base = Cfg.OpenWaterCastDistance
-	for _, d in { base, base - 5, base + 5 } do
+	for _, d in { base, base - 4, base + 4, base - 8, base + 8, base + 12 } do
 		local p = root.Position + dir * d
 		if FishingWater.IsWater(p) then
 			return Vector3.new(p.X, 0, p.Z)
 		end
 	end
 	return nil
+end
+
+-- Kameranın baktığı yatay yön
+local function lookDir(): Vector3?
+	local cam = Workspace.CurrentCamera
+	local root = player.Character and player.Character:FindFirstChild("HumanoidRootPart") :: BasePart?
+	if not cam or not root then
+		return nil
+	end
+	local l = cam.CFrame.LookVector
+	local d = Vector3.new(l.X, 0, l.Z)
+	if d.Magnitude < 0.01 then
+		d = Vector3.new(root.CFrame.LookVector.X, 0, root.CFrame.LookVector.Z)
+	end
+	return d.Unit
+end
+
+-- Olta nereye: baktığın yöndeki işaretli spot (±35°) > baktığın yöndeki açık su > (yoksa) yakındaki spot
+chooseCastTarget = function()
+	local root = player.Character and player.Character:FindFirstChild("HumanoidRootPart") :: BasePart?
+	local dir = lookDir()
+	if not root or not dir then
+		return nearSpot or openWaterPoint
+	end
+	local folder = Workspace:FindFirstChild("FishingSpots")
+	if folder then
+		local best, bestScore = nil, -math.huge
+		for _, p in folder:GetDescendants() do
+			if p:IsA("BasePart") then
+				local off = Vector3.new(p.Position.X - root.Position.X, 0, p.Position.Z - root.Position.Z)
+				local dist = off.Magnitude
+				if dist <= Cfg.CastRange and dist > 1 then
+					local dot = off.Unit:Dot(dir)
+					if dot >= 0.82 and dot - dist * 0.004 > bestScore then
+						best, bestScore = p, dot - dist * 0.004
+					end
+				end
+			end
+		end
+		if best then
+			return best
+		end
+	end
+	return findOpenWater() or nearSpot
+end
+
+-- karakter oltayı atarken o yöne döner (teknede oturuyorsa dönmez)
+faceTowards = function(point: Vector3)
+	local char = player.Character
+	local root = char and char:FindFirstChild("HumanoidRootPart") :: BasePart?
+	local hum = char and char:FindFirstChildOfClass("Humanoid")
+	if not root or not hum or hum.SeatPart then
+		return
+	end
+	local d = Vector3.new(point.X - root.Position.X, 0, point.Z - root.Position.Z)
+	if d.Magnitude < 0.5 then
+		return
+	end
+	root.CFrame = CFrame.lookAt(root.Position, root.Position + d)
 end
 
 -- Reeling döngüsü -----------------------------------------------------------
@@ -1061,7 +1149,7 @@ function ReelingController.Init()
 		if scanTimer <= 0 then
 			scanTimer = 0.2
 			nearSpot = findNearestSpot()
-			openWaterPoint = if nearSpot then nil else findOpenWater()
+			openWaterPoint = findOpenWater()
 			button.Visible = nearSpot ~= nil or openWaterPoint ~= nil or phase ~= "idle"
 		end
 		if phase == "reeling" then

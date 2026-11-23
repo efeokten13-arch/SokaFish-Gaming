@@ -25,7 +25,7 @@ local function fishPool(ocean: string, spot: string): { [string]: { string } }
 	return byRarity
 end
 
--- Önce nadirlik seç (luck Common dışındakileri büyütür), sonra o nadirlikten rastgele balık
+-- Önce nadirlik seç (luck nadir olanları daha çok büyütür: weight × luck^luckPow), sonra o nadirlikten rastgele balık
 function FishService.Roll(ocean: string, spot: string, luck: number): string?
 	local byRarity = fishPool(ocean, spot)
 
@@ -33,8 +33,8 @@ function FishService.Roll(ocean: string, spot: string, luck: number): string?
 	local weights: { { rarity: string, w: number } } = {}
 	for _, rarity in Rarities.Order do
 		if byRarity[rarity] then
-			local base = (Rarities :: any)[rarity].weight :: number
-			local w = if rarity == "Common" then base else base * luck
+			local r = (Rarities :: any)[rarity]
+			local w = (r.weight :: number) * math.max(luck, 0.01) ^ (r.luckPow or 0)
 			table.insert(weights, { rarity = rarity, w = w })
 			total += w
 		end
