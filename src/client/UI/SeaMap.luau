@@ -500,6 +500,7 @@ end
 
 local function close()
 	if not isOpen then
+		gui.Enabled = false -- başka bir şey (ör. yelken animasyonu) açık bıraktıysa yine de kapat
 		return
 	end
 	isOpen = false
@@ -552,6 +553,12 @@ local function build()
 	gui.DisplayOrder = 12
 	gui.Enabled = false
 	gui.Parent = player:WaitForChild("PlayerGui")
+	-- harita kapalıyken biri onu tekrar açarsa (ör. animasyon menüleri geri açınca) kapalı tut
+	gui:GetPropertyChangedSignal("Enabled"):Connect(function()
+		if gui.Enabled and not isOpen then
+			gui.Enabled = false
+		end
+	end)
 
 	dim = frame(gui, "Dim", UDim2.fromScale(1, 1), UDim2.fromScale(0, 0), Color3.new(0, 0, 0), 1)
 	dim.Active = true
@@ -661,8 +668,10 @@ local function build()
 		local folder = ReplicatedStorage:FindFirstChild("SeaMapRemotes")
 		local ev = folder and folder:FindFirstChild("Travel")
 		if ev then
-			ev:FireServer(isl.id)
 			close()
+			isOpen = false
+			gui.Enabled = false -- animasyon başlamadan hemen gizle, yoksa animasyon bitince geri açılıyor
+			ev:FireServer(isl.id)
 		end
 	end)
 
