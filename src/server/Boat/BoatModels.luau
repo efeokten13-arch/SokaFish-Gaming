@@ -192,6 +192,19 @@ BUILDERS.Warship = function(m)
 			table.insert(parts, { barrel, rel, CFrame.new(BARREL_LEN * (0.5 - OUTSIDE), 0, 0) })
 			local ring = newPart(cannons, "Muzzle", Vector3.new(0.4, 1.4, 1.4), Color3.fromRGB(40, 40, 44), Enum.Material.Metal, "cyl")
 			table.insert(parts, { ring, rel * CFrame.new(BARREL_LEN / 2 - 0.2, 0, 0), nil, barrel.Name })
+			-- nişan kamerasında yakından görünür: çember bantlar, kalın arka kısım ve arka topuz (fitil deliği)
+			for _, bx in { -1.6, -0.5, 0.9 } do
+				local band = newPart(cannons, "Band", Vector3.new(0.28, 1.28, 1.28), Color3.fromRGB(36, 36, 40), Enum.Material.Metal, "cyl")
+				band.CanCollide = false
+				table.insert(parts, { band, rel * CFrame.new(bx, 0, 0), nil, barrel.Name })
+			end
+			local breech = newPart(cannons, "Breech", Vector3.new(1.2, 1.36, 1.36), Color3.fromRGB(46, 47, 52), Enum.Material.Metal, "cyl")
+			table.insert(parts, { breech, rel * CFrame.new(-BARREL_LEN / 2 + 0.6, 0, 0), nil, barrel.Name })
+			local knob = newPart(cannons, "Cascabel", Vector3.new(0.7, 0.7, 0.7), Color3.fromRGB(40, 40, 44), Enum.Material.Metal, "ball")
+			table.insert(parts, { knob, rel * CFrame.new(-BARREL_LEN / 2 - 0.2, 0, 0), nil, barrel.Name })
+			for _, p in { breech, knob } do
+				p.CanCollide = false
+			end
 		end
 	end
 	return hull, parts

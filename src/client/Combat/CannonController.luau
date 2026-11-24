@@ -1,6 +1,6 @@
 --!nonstrict
 -- Gemi topları (client): kendi gemindeki bir topun yanına gelince "Aim" ve "Fire" butonları çıkar.
--- Nişan modu (Sea of Thieves tarzı): kamera topun arkasına geçer, namlunun üstünden denize bakılır.
+-- Nişan modu (Sea of Thieves tarzı): kamera namlunun hemen arkasına geçer, namlu ekranın altında, namlu boyunca bakılır.
 --   Sağa-sola: fare / parmak / A-D (en fazla ±25°). Yukarı-aşağı: fare / parmak / W-S (Config/Cannons Min/MaxPitch).
 --   Gülle yolu sarı noktalarla, düşeceği yer halka ile görünür. Sağ ortada gülle envanteri (1-2-3 ile seç).
 --   Nişandayken karakter yürümez ve kendi ekranında gizlenir (görüşü kapatmasın).
@@ -35,7 +35,7 @@ local fishingGui -- nişandayken "At" (olta) butonu gizlenir
 -- nişan kamerası
 local ENTER_TIME = 0.4 -- kameranın topun arkasına geçiş süresi
 local EXIT_TIME = 0.3
-local AIM_FOV = 58
+local AIM_FOV = 66
 local MOUSE_SENS = 0.0045 -- rad / piksel
 local TOUCH_SENS = 0.007
 local KEY_SPEED = 1.1 -- rad / sn (A-D)
@@ -132,18 +132,18 @@ local function barrelCF(barrel)
 	return hull.CFrame * w.C0 * w.C1:Inverse()
 end
 
--- Nişan kamerası: namlunun üstünde; namlu ağzı ekranın alt ortasında görünür
+-- Nişan kamerası (Ege'nin Sea of Thieves resmi, 24 Kas): kamera namlunun hemen ARKASINDA ve biraz üstünde, namluyla
+-- birlikte sağa-sola VE yukarı-aşağı döner; kalın namlu ekranın alt ortasını doldurur, ağzı hedefe bakar.
+local EYE_BACK = 1.7 -- namlunun arka ucundan geriye
+local EYE_UP = 1.05 -- namlu ekseninin üstüne
 local function aimCameraCF(barrel)
-	local w = barrel.Hinge
-	local base = w:GetAttribute("BaseC0") or w.C0
-	-- kamera sadece sağa-sola döner; yukarı-aşağıyı yarısı kadar takip eder (düşüş noktası ekranda kalsın)
-	local cf = hull.CFrame * base * CFrame.Angles(0, yaw, 0) * w.C1:Inverse()
-	-- göz namlunun dış yarısının üstünde: gövde içindeki direk/yelken görüşü kapatmasın
-	local eye = (cf * CFrame.new(0.5, 2.2, 0)).Position
-	local target = (cf * CFrame.new(60, 0.3 + math.tan(pitch * 0.55) * 60, 0)).Position
+	local cf = barrelCF(barrel)
+	local half = barrel.Size.X / 2
+	local eye = (cf * CFrame.new(-half - EYE_BACK, EYE_UP, 0)).Position
+	local target = (cf * CFrame.new(60, EYE_UP - 1.4, 0)).Position
 	-- hafif dalga sallantısı
 	local t = os.clock()
-	eye += Vector3.new(0, math.sin(t * 1.3) * 0.08, 0)
+	eye += Vector3.new(0, math.sin(t * 1.3) * 0.06, 0)
 	if shake > 0.01 then
 		eye += Vector3.new(math.random() - 0.5, math.random() - 0.5, math.random() - 0.5) * shake
 	end
