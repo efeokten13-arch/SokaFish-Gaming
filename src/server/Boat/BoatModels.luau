@@ -1,5 +1,5 @@
 --!nonstrict
--- Tekne modellerini koddan üretir: Kayak, Rowboat, Sloop.
+-- Tekne modellerini koddan üretir: Kayak, Rowboat, Sloop, Warship (server/Boat/WarshipModel).
 -- BoatController ile uyumlu: "Kayak" tag'i, PrimaryPart = Hull, içinde VehicleSeat. Tekne -Z'ye (LookVector) bakar.
 --   BoatModels.Build(id, cframe, display)  -> display = true ise sabit vitrin modeli (sürülemez, tag yok)
 local CollectionService = game:GetService("CollectionService")
@@ -156,89 +156,18 @@ BUILDERS.Sloop = function(m)
 	return hull, parts
 end
 
--- Warship: AI ile üretilmiş mesh (ServerStorage.BoatTemplates.Warship).
--- Görünmez kutular fizik ve yürünen zemin: orta güverte (Hull), kıç ve pruva güverteleri.
--- Mesh sadece görüntü (çarpışmasız); mesh'in kendi çarpışması güverteyle uyuşmadığı için.
--- Şablon yoksa nil döner ve oyunun geri kalanı etkilenmez.
--- Ölçüler (su seviyesine göre, renkli plaka yöntemiyle):
---   pruva güvertesi (z -12..-3.4) ~6.8, orta çukur güverte (z -3.4..8.4) ~2.25, kıç güvertesi (z 9..16) ~8.8
-local WARSHIP_HULL = Vector3.new(8, 3.2, 12) -- sadece fizik kökü (görünmez, çarpışmasız)
-local WARSHIP_MESH_Y = 10.85 -- mesh merkezinin gövde merkezine göre yüksekliği
+-- Warship: görüntü ve fizik server/Boat/WarshipModel (Ege'nin resmi, 24 Kas: tek direkli, beyaz çerçeveli, kıç kuleli).
+-- Eski yapay zeka mesh'i ServerStorage.BoatTemplates.Warship'te duruyor ama artık kullanılmıyor.
+local WarshipModel = require(script.Parent.WarshipModel)
 local W = -0.65 -- gövde merkezinden su seviyesine
--- Toplar: { z, güverte yüksekliği (sudan) } her iki yanda
--- Her yanda bir top, orta (çukur) güvertede, gövdedeki top deliği hizasında
-local CANNONS = { { 1, 2.25 } }
-local SIDE_X = 7.0 -- top namlusunun gövdeden çıktığı yer (bu yükseklikte gövde yarı genişliği)
+-- Toplar: { z, güverte yüksekliği (sudan) } her iki yanda; orta (çukur) güvertede, gövdedeki top deliği hizasında
+local CANNONS = { { WarshipModel.CannonZ, WarshipModel.DeckWell } }
+local SIDE_X = WarshipModel.SideX -- top namlusunun gövdeden çıktığı yer
 local BARREL_LEN = 5
 local OUTSIDE = 0.25 -- namlunun dışarıda kalan kısmı (çeyrek)
 
 BUILDERS.Warship = function(m)
-	local storage = game:GetService("ServerStorage")
-	local folder = storage:FindFirstChild("BoatTemplates")
-	local template = folder and folder:FindFirstChild("Warship")
-	if not template then
-		warn("[BoatModels] ServerStorage.BoatTemplates.Warship bulunamadı")
-		return nil
-	end
-	local hull = newPart(m, "Hull", WARSHIP_HULL, Color3.new(1, 1, 1), Enum.Material.SmoothPlastic)
-	hull.Transparency = 1
-	hull.CanCollide = false
-	local parts = {}
-	-- görünmez zeminler: karakter bunların üstünde yürür
-	local function block(name, size, cf)
-		local f = newPart(m, name, size, Color3.new(1, 1, 1), Enum.Material.SmoothPlastic)
-		f.Transparency = 1
-		table.insert(parts, { f, cf })
-		return f
-	end
-	local function floor(name, size, top, z)
-		block(name, size, CFrame.new(0, W + top - size.Y / 2, z))
-	end
-	floor("DeckWell", Vector3.new(12, 3, 11.8), 2.25, 2.5)
-	floor("DeckBow", Vector3.new(8, 3, 8.6), 6.8, -7.7)
-	floor("DeckStern", Vector3.new(9, 3, 7), 8.8, 12.5)
-	-- çukurun yan duvarları (denize yürüyüp düşülmesin)
-	for _, side in { -1, 1 } do
-		block("WellWall", Vector3.new(0.6, 7, 11.8), CFrame.new(side * 6.3, W + 2.25 + 3.5, 2.5))
-	end
-	-- rampalar: çukurdan pruva ve kıç güvertesine (WedgePart eğimi +Z yönüne yükselir)
-	local function ramp(name, x, z0, z1, y0, y1)
-		local len, rise = math.abs(z1 - z0), y1 - y0
-		local wdg = Instance.new("WedgePart")
-		wdg.Name = name
-		wdg.Size = Vector3.new(2.4, rise, len)
-		wdg.Transparency = 1
-		wdg.Parent = m
-		local cf = CFrame.new(x, W + y0 + rise / 2, (z0 + z1) / 2)
-		if z1 < z0 then
-			cf = cf * CFrame.Angles(0, math.pi, 0)
-		end
-		table.insert(parts, { wdg, cf })
-	end
-	ramp("RampBow", 2.5, 0.6, -3.4, 2.25, 6.8)
-	ramp("RampStern", -2.5, 4.5, 9, 2.25, 8.8)
-	local mesh = template:Clone()
-	mesh.Name = "Visual"
-	mesh:PivotTo(CFrame.new())
-	for _, d in mesh:GetDescendants() do
-		if d:IsA("BasePart") then
-			d.CanCollide = false
-			table.insert(parts, { d, CFrame.new(0, WARSHIP_MESH_Y, 0) * d.CFrame })
-		end
-	end
-	mesh.Parent = m
-
-	-- Kıçta dümen (dönen tekerlek) ve kaptan koltuğu
-	local deckStern = W + 8.8
-	table.insert(parts, { newPart(m, "WheelPost", Vector3.new(0.6, 3, 0.6), DARK, Enum.Material.Wood), CFrame.new(0, deckStern + 1.5, 10.6) })
-	local wheel = newPart(m, "Wheel", Vector3.new(0.35, 3.6, 3.6), Color3.fromRGB(120, 78, 44), Enum.Material.Wood, "cyl")
-	-- tekerlek ekseni gemi boyunca (Z); hinge ile kendi ekseninde döner
-	table.insert(parts, { wheel, CFrame.new(0, deckStern + 3.4, 10.25) * CFrame.Angles(0, math.pi / 2, 0), CFrame.new() })
-	for k = 0, 3 do
-		local spoke = newPart(m, "Spoke", Vector3.new(0.2, 4.6, 0.25), DARK, Enum.Material.Wood)
-		table.insert(parts, { spoke, CFrame.new(0, deckStern + 3.4, 10.25) * CFrame.Angles(0, math.pi / 2, 0) * CFrame.Angles(k * math.pi / 4, 0, 0), nil, "Wheel" })
-	end
-	table.insert(parts, { seat(m, Vector3.new(2.4, 0.5, 2), DARK), CFrame.new(0, deckStern + 0.25, 12.6) })
+	local hull, parts = WarshipModel.Build(m, newPart, seat)
 
 	-- Toplar: kızak (güvertede sabit) + namlu (hinge ile sağa sola döner)
 	local cannons = Instance.new("Folder")
