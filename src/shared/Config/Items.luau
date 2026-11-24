@@ -24,6 +24,8 @@ Items.Defs = {
 	Wood = { name = "Wood", icon = "🌲", field = "wood", tier = "Green" },
 	Metal = { name = "Metal", icon = "🔩", field = "metal", tier = "Blue" },
 	Pearl = { name = "Pearls", icon = "🦪", field = "pearls", tier = "Purple" },
+	-- görev eşyası (sayı değil): Marina'nın kayıp kolyesi. Sadece deniz kızı görevi sürerken sandıktan çıkar
+	Necklace = { name = "Diamond Necklace", icon = "💎", flag = "hasNecklace", tier = "Yellow", quest = true },
 }
 
 Items.BigPearlAt = 7 -- bu kadar ve üstü inci = sarı (Legendary)
@@ -66,6 +68,13 @@ Items.Altar = {
 	RewardFish = "GoldenFish", -- kutsamanın garanti ettiği balık (Config/Fish)
 	BlessAt = 6.2, -- sahnede altın ışığın oyuncuya indiği an (sn) -> parıltı başlar
 	Duration = 8.5, -- sahnenin toplam süresi (sn) -> veri gönderilir
+}
+
+-- Deniz kızı Marina'nın görevi (2. ada): 3 eşyayı istediğin sırada, tek tek ya da hepsini birden götür -> kale kapısı anahtarı
+Items.Mermaid = {
+	NecklaceChance = 0.5, -- görev sürerken her sandık açılışında kolye ihtimali
+	NecklaceGuaranteeAt = 3, -- en geç bu kadarıncı sandıkta kesin çıkar
+	QuestFish = "GoldenFish", -- istenen balık (çantada olmalı; havuzdaki sayılmaz)
 }
 
 function Items.TierRank(tier: string): number

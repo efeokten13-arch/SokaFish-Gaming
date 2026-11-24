@@ -46,7 +46,13 @@ export type PlayerData = {
 	introDone: boolean?, -- yaşlı balıkçının giriş öğreticisi bitti mi (bitene kadar ada/harita butonları kapalı)
 	mermaidDone: boolean?, -- deniz kızı Marina'nın 2. ada öğreticisi bitti mi
 	practiceDone: boolean?, -- kapı arkasındaki atış görevinde düşman gemisini batırdı mı
-	hasGateKey: boolean?, -- kale kapısının anahtarı (deniz kızı görevinden; görev henüz yapılmadı, dev komutuyla verilir)
+	hasGateKey: boolean?, -- kale kapısının anahtarı (deniz kızı görevinin ödülü, Map/MermaidService)
+	mermaidQuest: number?, -- deniz kızı görevi: nil/0 başlamadı, 1 sürüyor, 2 bitti (anahtar verildi)
+	mqGiven: { string }?, -- Marina'ya teslim edilenler: "fish" | "shell" | "necklace"
+	hasNecklace: boolean?, -- sandıktan çıkan kolye çantada (henüz teslim edilmedi)
+	hasShell: boolean?, -- parlayan kabuk çantada (henüz teslim edilmedi)
+	shellSpot: number?, -- parlayan kabuğun bu oyuncu için hangi hilal adada olduğu (1-4)
+	necklaceTries: number?, -- görev sürerken kolyesiz açılan sandık sayısı
 	island3Unlocked: boolean?,
 	goldenBlessing: boolean?, -- tapınakta Epic balık feda edildi: sonraki tutulan balık Golden Fish (Map/AltarService) -- atış görevi bitti, 3. ada açıldı (3. ada henüz yapılmadı)
 	starterGrant: boolean?, -- eski kayıtlara bir kez başlangıç parası vermek için
@@ -93,6 +99,12 @@ function DataService.Payload(player: Player): any
 		wood = data.wood or 0,
 		metal = data.metal or 0,
 		goldenBlessing = data.goldenBlessing == true,
+		mermaidQuest = data.mermaidQuest or 0,
+		mqGiven = table.clone(data.mqGiven or {}),
+		hasNecklace = data.hasNecklace == true,
+		hasShell = data.hasShell == true,
+		shellSpot = data.shellSpot,
+		hasGateKey = data.hasGateKey == true,
 		storage = table.clone(data.storage),
 		slots = if boat then boat.slots else 3,
 		protectedSlots = Boats.ProtectedSlots,

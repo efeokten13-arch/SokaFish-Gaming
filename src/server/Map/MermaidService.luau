@@ -1,7 +1,11 @@
 --!nonstrict
 -- Deniz kızı Marina (2. ada, kayanın üstünde oturur). NPC Studio'da hazır: "Workspace.NPCs.Mermaid Marina".
---  * 2. adaya ilk gelen oyuncuya sinematik öğretici başlar (client/Tutorial/MermaidIntro); bitince en yakın sandığa ok.
---  * Sonradan E ile konuşunca öğretici tekrar oynar. Öğreticide oyuncu başına "mermaidDone" kaydedilir.
+--  * 2. adaya ilk gelen oyuncuya sinematik öğretici başlar (client/Tutorial/MermaidIntro): adayı gezdirir, sonra
+--    GÖREVİ verir: kapının anahtarı için 3 eşya getir (sıra yok, tek tek ya da hepsi birden teslim edilebilir):
+--      Golden Fish (çantada; tapınaktaki fedadan ya da şansla), Glowing Shell (oyuncuya özel, 4 hilal adadan birinde),
+--      Diamond Necklace (görev sürerken 2. ada sandıklarından: %50, en geç 3. sandıkta kesin; Treasure/Loot).
+--  * Sonra E ile konuşunca: elindeki eşyaları teslim alır; üçü tamamsa anahtarı verir (data.hasGateKey) ve kapıya ok.
+--  * Kayıt: mermaidDone (gezinti görüldü), mermaidQuest (0/1/2), mqGiven, hasShell, hasNecklace, shellSpot.
 --  * Animasyonlar: oturma (döngü) + el sallama / işaret etme / sevinç (öğretici adımına göre client ister).
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local Workspace = game:GetService("Workspace")
@@ -11,6 +15,8 @@ local TweenService = game:GetService("TweenService")
 local CollectionService = game:GetService("CollectionService")
 
 local Remotes = require(ReplicatedStorage:WaitForChild("Shared"):WaitForChild("Remotes"))
+local Items = require(ReplicatedStorage.Shared:WaitForChild("Config"):WaitForChild("Items"))
+local AtollCfg = require(ReplicatedStorage.Shared.Config:WaitForChild("Atoll"))
 local DataService = require(script.Parent.Parent.Data.DataService)
 
 local MermaidService = {}
@@ -110,18 +116,124 @@ local function nearestChest(): BasePart?
 	return best and (best.PrimaryPart or best:FindFirstChildWhichIsA("BasePart", true))
 end
 
+local QUEST_ITEMS = { "fish", "shell", "necklace" }
+
+local function given(data: any, item: string): boolean
+	return table.find(data.mqGiven or {}, item) ~= nil
+end
+
+-- oyuncunun elinde teslim edilebilecek bir şey var mı
+local function hasSomething(data: any): boolean
+	if data.mermaidQuest ~= 1 then
+		return false
+	end
+	return (not given(data, "fish") and table.find(data.storage, Items.Mermaid.QuestFish) ~= nil)
+		or (not given(data, "shell") and data.hasShell == true)
+		or (not given(data, "necklace") and data.hasNecklace == true)
+end
+
+-- Elindekileri teslim al. { given = {yeni teslim}, remaining = {kalanlar}, done = anahtar verildi mi }
+local function handIn(player: Player, data: any)
+	data.mqGiven = data.mqGiven or {}
+	local now = {}
+	if not given(data, "fish") then
+		local i = table.find(data.storage, Items.Mermaid.QuestFish)
+		if i then
+			table.remove(data.storage, i)
+			table.insert(now, "fish")
+		end
+	end
+	if not given(data, "shell") and data.hasShell then
+		data.hasShell = false
+		table.insert(now, "shell")
+	end
+	if not given(data, "necklace") and data.hasNecklace then
+		data.hasNecklace = false
+		table.insert(now, "necklace")
+	end
+	for _, it in now do
+		table.insert(data.mqGiven, it)
+	end
+	local remaining = {}
+	for _, it in QUEST_ITEMS do
+		if not given(data, it) then
+			table.insert(remaining, it)
+		end
+	end
+	local done = #remaining == 0
+	if done then
+		data.mermaidQuest = 2
+		data.hasGateKey = true
+		player:SetAttribute("HasGateKey", true)
+	end
+	DataService.Push(player)
+	return { given = now, remaining = remaining, done = done }
+end
+
 local function startTutorial(player: Player)
 	if active[player] then
+		return
+	end
+	local data = DataService.Get(player) :: any
+	if not data then
 		return
 	end
 	active[player] = true
 	local hrp = player.Character and player.Character:FindFirstChild("HumanoidRootPart")
 	face(hrp and (hrp :: BasePart).Position)
-	Remotes.Event("MermaidStart"):FireClient(player)
+	local quest = data.mermaidQuest or 0
+	if not data.mermaidDone then
+		Remotes.Event("MermaidStart"):FireClient(player, "intro") -- ada gezisi + görev
+	elseif quest == 0 then
+		Remotes.Event("MermaidStart"):FireClient(player, "quest") -- gezisi eski kayıtta görülmüş: sadece görev
+	elseif quest == 1 then
+		Remotes.Event("MermaidStart"):FireClient(player, "turnin", handIn(player, data))
+	else
+		Remotes.Event("MermaidStart"):FireClient(player, "after")
+	end
 	-- güvenlik: client hiç dönmezse kilit kalmasın
 	task.delay(240, function()
 		active[player] = nil
 	end)
+end
+
+MermaidService.Talk = startTutorial -- dev komutu (DevMermaid "talk")
+
+-- Kale kapısı (anahtarı alınca ok buraya)
+local gateMarker: BasePart? = nil
+local function gateTarget(): BasePart
+	if gateMarker and gateMarker.Parent then
+		return gateMarker
+	end
+	-- streaming açık: uzaktaki parça client'a gelmez ve ok boş kalır. Persistent model hep yüklü kalır.
+	local holder = Instance.new("Model")
+	holder.Name = "GateMarker"
+	holder.ModelStreamingMode = Enum.ModelStreamingMode.Persistent
+	local p = Instance.new("Part")
+	p.Name = "Marker"
+	p.Anchored = true
+	p.CanCollide = false
+	p.CanQuery = false
+	p.CanTouch = false
+	p.Transparency = 1
+	p.Size = Vector3.one
+	p.Position = Vector3.new(4562, 6, -881)
+	p.Parent = holder
+	holder.PrimaryPart = p
+	holder.Parent = Workspace
+	gateMarker = p
+	return p
+end
+
+local function arrow(player: Player, part: BasePart?, label: string?, seconds: number)
+	Remotes.Event("GuideTarget"):FireClient(player, part, label)
+	if part then
+		task.delay(seconds, function()
+			if player.Parent then
+				Remotes.Event("GuideTarget"):FireClient(player, nil)
+			end
+		end)
+	end
 end
 
 -- Client'tan: ("mermaid", "Wave"|"Point"|"Cheer") jest | ("mermaid", "done") bitti
@@ -131,20 +243,28 @@ function MermaidService.Action(player: Player, what: any): any
 		return true
 	elseif what == "done" then
 		local data = DataService.Get(player) :: any
-		if data then
-			data.mermaidDone = true
-		end
 		active[player] = nil
 		face(nil)
 		gesture("Cheer", 2.5)
-		local chest = nearestChest()
-		if chest then
-			Remotes.Event("GuideTarget"):FireClient(player, chest, "Treasure chest")
-			task.delay(90, function()
-				if player.Parent then
-					Remotes.Event("GuideTarget"):FireClient(player, nil)
-				end
-			end)
+		if not data then
+			return true
+		end
+		data.mermaidDone = true
+		if (data.mermaidQuest or 0) == 0 then
+			-- görev başlar: kabuk bu oyuncu için rastgele bir hilal adada
+			data.mermaidQuest = 1
+			data.mqGiven = {}
+			data.necklaceTries = 0
+			data.shellSpot = math.random(1, #AtollCfg.Crescents)
+			DataService.Push(player)
+		end
+		if data.mermaidQuest == 2 then
+			arrow(player, gateTarget(), "Castle Gate", 240)
+		elseif not given(data, "necklace") and not data.hasNecklace then
+			local chest = nearestChest()
+			if chest then
+				arrow(player, chest, "Treasure chest", 90)
+			end
 		end
 		return true
 	end
@@ -155,6 +275,11 @@ local function setup(model: Model)
 	root = model:WaitForChild("HumanoidRootPart") :: BasePart
 	head = model:WaitForChild("Head") :: BasePart
 	home = root.CFrame
+	-- client'ın oku için (Marina uzaktayken streaming yüzünden modeli client'ta olmayabilir)
+	local info = ReplicatedStorage:FindFirstChild("MermaidShells") or Instance.new("Folder")
+	info.Name = "MermaidShells"
+	info:SetAttribute("Marina", root.Position + root.CFrame.LookVector * 3.2)
+	info.Parent = ReplicatedStorage
 	local hum = model:WaitForChild("Humanoid") :: Humanoid
 	local animator = hum:FindFirstChildOfClass("Animator") or Instance.new("Animator", hum)
 	local old = model:FindFirstChild("NPCAnimator") -- eski "sürekli el sallar" betiği
@@ -220,10 +345,14 @@ local function setup(model: Model)
 						seen[p] = os.clock()
 						startTutorial(p)
 					end
-				elseif (hrp.Position - root.Position).Magnitude < 30 and os.clock() - (seen[p] or -999) > 180 then
+				elseif (hrp.Position - root.Position).Magnitude < 30 and os.clock() - (seen[p] or -999) > (hasSomething(data) and 40 or 180) then
 					seen[p] = os.clock()
 					face(hrp.Position)
-					bubble("Hello, " .. p.DisplayName .. "! Come talk to me (E)", 5)
+					local msg = if hasSomething(data)
+						then "Ooh, " .. p.DisplayName .. "! Did you bring me something? Talk to me (E)"
+						elseif data.mermaidQuest == 1 then "Still searching, " .. p.DisplayName .. "? Talk to me (E)"
+						else "Hello, " .. p.DisplayName .. "! Come talk to me (E)"
+					bubble(msg, 5)
 					gesture("Wave", 3)
 					task.delay(5, function()
 						face(nil)
@@ -238,7 +367,116 @@ local function setup(model: Model)
 	end)
 end
 
+
+-- Parlayan kabuklar ---------------------------------------------------------------------------------------------
+-- Her hilal adada bir GÖRÜNMEZ dokunma noktası ("Pick up" prompt'u). Kabuğun kendisini client çizer, sadece o oyuncunun
+-- kabuğunu (shellSpot) ve sadece onun prompt'unu gösterir (client/Map/MermaidQuest). Oyunda streaming açık olduğu için
+-- görüntü server parçalarına bağlı değil: konumlar ReplicatedStorage.MermaidShells attribute'larında (Pos1..Pos4).
+-- Server kimin kabuğu olduğunu ayrıca kontrol eder.
+local SHELL_GOLD = Color3.fromRGB(255, 220, 130)
+
+local function landAt(x: number, z: number): Vector3?
+	local params = RaycastParams.new()
+	params.FilterType = Enum.RaycastFilterType.Include
+	params.FilterDescendantsInstances = { Workspace.Terrain }
+	params.IgnoreWater = false
+	local hit = Workspace:Raycast(Vector3.new(x, 200, z), Vector3.new(0, -400, 0), params)
+	if hit and hit.Material ~= Enum.Material.Water and hit.Position.Y > 0.6 and hit.Position.Y < 12 then
+		return hit.Position
+	end
+	return nil
+end
+
+local function shellSpotPos(arc: { { number } }): Vector3?
+	local O, S, C = AtollCfg.Origin, AtollCfg.Scale, AtollCfg.Center
+	local mid = math.ceil(#arc / 2)
+	local order = { mid, mid + 1, mid - 1, mid + 2, mid - 2, 1, #arc }
+	for _, k in order do
+		local pt = arc[k]
+		if pt then
+			local x, z = O.X + (pt[1] - C[1]) * S, O.Z + (pt[2] - C[2]) * S
+			for _, off in { Vector2.zero, Vector2.new(8, 0), Vector2.new(-8, 0), Vector2.new(0, 8), Vector2.new(0, -8), Vector2.new(14, 14), Vector2.new(-14, -14) } do
+				local pos = landAt(x + off.X, z + off.Y)
+				if pos then
+					return pos
+				end
+			end
+		end
+	end
+	return nil
+end
+
+local function buildShell(index: number, pos: Vector3, parent: Instance)
+	local hit = Instance.new("Part")
+	hit.Name = "GlowingShell" .. index
+	hit:SetAttribute("Spot", index)
+	hit.Size = Vector3.new(4, 4, 4)
+	hit.Position = pos + Vector3.new(0, 1.4, 0)
+	hit.Anchored = true
+	hit.CanCollide = false
+	hit.CanTouch = false
+	hit.CanQuery = false
+	hit.Transparency = 1
+	local pr = Instance.new("ProximityPrompt")
+	pr.Name = "ShellPrompt"
+	pr.ActionText = "Pick up"
+	pr.ObjectText = "Glowing Shell"
+	pr.HoldDuration = 0.6
+	pr.MaxActivationDistance = 12
+	pr.RequiresLineOfSight = false
+	pr.Enabled = true -- server'da açık olmalı (kapalı prompt'u server yok sayar); client başkalarınınkini kapatır
+	pr.Parent = hit
+	pr.Triggered:Connect(function(player)
+		local data = DataService.Get(player) :: any
+		if not data or data.mermaidQuest ~= 1 or data.shellSpot ~= index or data.hasShell or given(data, "shell") then
+			return
+		end
+		local hrp = player.Character and player.Character:FindFirstChild("HumanoidRootPart") :: BasePart?
+		if not hrp or (hrp.Position - hit.Position).Magnitude > 20 then
+			return
+		end
+		data.hasShell = true
+		DataService.Push(player)
+		DataService.Notify(player, "🐚 You found the Glowing Shell! Bring it to Marina.", SHELL_GOLD)
+	end)
+	hit.Parent = parent
+end
+
+local function buildShells()
+	local atoll = Workspace:WaitForChild("Atoll", 60)
+	if not atoll then
+		return
+	end
+	local old = atoll:FindFirstChild("QuestShells")
+	if old then
+		old:Destroy()
+	end
+	local folder = Instance.new("Folder")
+	folder.Name = "QuestShells"
+	local info = ReplicatedStorage:FindFirstChild("MermaidShells") or Instance.new("Folder")
+	info.Name = "MermaidShells"
+	info.Parent = ReplicatedStorage
+	for i, arc in AtollCfg.Crescents do
+		local pos = shellSpotPos(arc)
+		if pos then
+			buildShell(i, pos, folder)
+			info:SetAttribute("Pos" .. i, pos)
+		else
+			warn("[Mermaid] hilal ada " .. i .. " için kabuk yeri bulunamadı")
+		end
+	end
+	folder.Parent = atoll
+end
+
 function MermaidService.Init()
+	task.spawn(buildShells)
+	gateTarget() -- baştan kur: ok gönderildiği anda client'ta hazır olsun
+	Players.PlayerAdded:Connect(function(p)
+		local data = DataService.Wait(p) :: any
+		if data and data.hasGateKey then
+			p:SetAttribute("HasGateKey", true)
+		end
+	end)
 	task.spawn(function()
 		local folder = Workspace:WaitForChild("NPCs", 60)
 		local m = folder and folder:WaitForChild("Mermaid Marina", 30)

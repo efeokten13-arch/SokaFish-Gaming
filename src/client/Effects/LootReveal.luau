@@ -250,6 +250,8 @@ local function makeCard(parent, reward, index, count)
 	local amountText = "+" .. tostring(reward.amount)
 	if reward.id == "Gold" then
 		amountText = "+$" .. tostring(reward.amount)
+	elseif def and def.quest then
+		amountText = "FOUND!"
 	end
 	local amt = label(amountText, 96, 34, Enum.Font.FredokaOne, Color3.new(1, 1, 1), 32)
 	amt.TextStrokeTransparency = 0.3

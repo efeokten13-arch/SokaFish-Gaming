@@ -89,6 +89,9 @@ local function onOpen(player: Player, model: Model)
 	end
 	mine[model] = now
 	local rewards, top = Loot.Roll("chest", model:GetAttribute("Tier") :: string?)
+	if model:GetPivot().Position.X > 3000 then -- kolye sadece 2. adanın (Mermaid Island) sandıklarında
+		top = Loot.QuestNecklace(player, rewards, top)
+	end
 	Loot.Grant(player, rewards)
 	finish(player, nil) -- önceki açılış yarım kaldıysa onu bitir
 	local entry = { model = model, color = (Items.TierColors :: any)[top], done = false }

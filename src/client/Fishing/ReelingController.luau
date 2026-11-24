@@ -36,6 +36,7 @@ local FishModelBuilder = require(Shared:WaitForChild("FishModelBuilder"))
 local Audio = require(Config:WaitForChild("Audio"))
 
 local ReelingController = {}
+local rareFlash -- (aşağıda tanımlı)
 ReelingController._debugTap = nil -- (test) Studio'da tıklama simülasyonu
 
 -- Çekme ayarları
@@ -384,6 +385,28 @@ local function clearFx()
 end
 
 -- şamandıranın etrafında köpük + (Epic/Legendary) renkli parıltı
+-- Rare takılınca ekran kenarında kısa renkli parlama (kademeli sahnelerin en hafifi)
+rareFlash = function(color: Color3)
+	local g = player:FindFirstChild("PlayerGui") and player.PlayerGui:FindFirstChild("FishingGui")
+	local holder = g or gui
+	if not holder then
+		return
+	end
+	local f = Instance.new("Frame")
+	f.Name = "RareFlash"
+	f.Size = UDim2.fromScale(1, 1)
+	f.BackgroundTransparency = 1
+	f.ZIndex = 1
+	local st = Instance.new("UIStroke")
+	st.Color = color
+	st.Thickness = 28
+	st.Transparency = 0.25
+	st.Parent = f
+	f.Parent = holder
+	TweenService:Create(st, TweenInfo.new(0.9, Enum.EasingStyle.Quad), { Transparency = 1, Thickness = 6 }):Play()
+	game:GetService("Debris"):AddItem(f, 1)
+end
+
 local function bobberFx(rarity: string)
 	clearFx()
 	local b = myBobber()
@@ -434,14 +457,14 @@ local function bobberFx(rarity: string)
 	drops.Parent = att
 	table.insert(fx, drops)
 	local rar = (Rarities :: any)[rarity]
-	if rar and (rarity == "Epic" or rarity == "Legendary") then
+	if rar and (rarity == "Rare" or rarity == "Epic" or rarity == "Legendary") then
 		local glow = Instance.new("ParticleEmitter")
 		glow.Texture = "rbxasset://textures/particles/sparkles_main.dds"
 		glow.Color = ColorSequence.new(rar.color)
 		glow.LightEmission = 1
 		glow.Size = NumberSequence.new({ NumberSequenceKeypoint.new(0, 0.9), NumberSequenceKeypoint.new(1, 0) })
 		glow.Lifetime = NumberRange.new(0.8, 1.6)
-		glow.Rate = rarity == "Legendary" and 40 or 22
+		glow.Rate = if rarity == "Legendary" then 40 elseif rarity == "Epic" then 22 else 14
 		glow.Speed = NumberRange.new(3, 7)
 		glow.SpreadAngle = Vector2.new(50, 50)
 		glow.Parent = att
@@ -1070,9 +1093,16 @@ local function bindRemotes()
 		bobberFx(info.rarity)
 		-- Epic / Legendary habercisi
 		if omenLabel then
-			if info.rarity == "Legendary" or info.rarity == "Epic" then
+			if info.rarity == "Legendary" or info.rarity == "Epic" or info.rarity == "Rare" then
 				local rc = (Rarities :: any)[info.rarity].color
-				omenLabel.Text = if info.rarity == "Legendary" then "✨ SOMETHING LEGENDARY! ✨" else "⚡ Something EPIC! ⚡"
+				omenLabel.Text = if info.rarity == "Legendary" then "✨ SOMETHING LEGENDARY! ✨"
+					elseif info.rarity == "Epic" then "⚡ Something EPIC! ⚡"
+					else "✦ Something RARE ✦"
+				-- kademeli sahneler: Rare = kısa dokunuş (1 sn): mavi kenar parlaması + kısa sarsıntı
+				if info.rarity == "Rare" then
+					shakeAmt = 0.35
+					rareFlash(rc)
+				end
 				omenLabel.TextColor3 = rc
 				omenLabel.Visible = true
 				omenLabel.TextSize = 12
@@ -1166,7 +1196,7 @@ function ReelingController.Init()
 
 		-- Server cevap vermezse takılı kalma
 		local waited = os.clock() - phaseSince
-		if (phase == "waiting" and waited > math.max(Cfg.WaitMax, Cfg.GoldenCastWait or 0) + Cfg.BiteWindow + 3) -- kutsamalı atış daha uzun bekler
+		if (phase == "waiting" and waited > math.max(Cfg.WaitMax, Cfg.CineMaxWait or 0) + Cfg.BiteWindow + 3) -- kutsamalı atış daha uzun bekler
 			or ((phase == "hooking" or phase == "sent") and waited > 4)
 		then
 			finish("Bağlantı sorunu, tekrar dene")

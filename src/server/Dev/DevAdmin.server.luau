@@ -129,3 +129,50 @@ bindable("DevGiveFish").Event:Connect(function(name, list, where)
 	end
 	print("[DevAdmin] storage =", table.concat(d.storage, ", "))
 end)
+
+-- Deniz kızı görevi testi:
+--   game.ServerStorage.DevMermaid:Fire()            -> görevi sıfırla (Marina'nın gezisi + görev baştan; anahtar silinir) ve Marina'nın yanına ışınla
+--   game.ServerStorage.DevMermaid:Fire(nil, "start") -> konuşmayı atla, görevi direkt başlat
+--   game.ServerStorage.DevMermaid:Fire(nil, "items") -> 3 eşyayı da ver (çantaya Golden Fish + kabuk + kolye; görev sürüyor olmalı)
+--   game.ServerStorage.DevMermaid:Fire(nil, "shell") -> sadece kendi parlayan kabuğunun yanına ışınla
+--   game.ServerStorage.DevMermaid:Fire(nil, "talk")  -> Marina ile konuş (E'ye basmış gibi)
+local MermaidService = require(script.Parent.Parent.Map.MermaidService)
+bindable("DevMermaid").Event:Connect(function(name, what)
+	local player = (name and Players:FindFirstChild(name)) or Players:GetPlayers()[1]
+	local d = player and DataService.Wait(player) :: any
+	if not d then
+		return
+	end
+	local char = player.Character
+	if what == nil or what == "reset" then
+		d.mermaidDone, d.mermaidQuest, d.mqGiven, d.hasShell, d.hasNecklace, d.shellSpot, d.necklaceTries = nil, 0, {}, nil, nil, nil, 0
+		d.hasGateKey = false
+		player:SetAttribute("HasGateKey", false)
+		local npcs = workspace:FindFirstChild("NPCs")
+		local m = npcs and npcs:FindFirstChild("Mermaid Marina")
+		if m and char then
+			local root = m:FindFirstChild("HumanoidRootPart")
+			char:PivotTo(CFrame.lookAt(root.Position + root.CFrame.LookVector * 9 + Vector3.new(0, 2, 0), root.Position))
+		end
+	elseif what == "start" then
+		d.mermaidDone, d.mermaidQuest, d.mqGiven, d.hasShell, d.hasNecklace, d.necklaceTries = true, 1, {}, nil, nil, 0
+		d.shellSpot = d.shellSpot or math.random(1, 4)
+		d.hasGateKey = false
+		player:SetAttribute("HasGateKey", false)
+	elseif what == "items" then
+		if not table.find(d.storage, "GoldenFish") then
+			table.insert(d.storage, "GoldenFish")
+		end
+		d.hasShell, d.hasNecklace = true, true
+	elseif what == "shell" then
+		local f = workspace:FindFirstChild("Atoll") and workspace.Atoll:FindFirstChild("QuestShells")
+		local s = f and d.shellSpot and f:FindFirstChild("GlowingShell" .. d.shellSpot)
+		if s and char then
+			char:PivotTo(CFrame.new(s:GetPivot().Position + Vector3.new(6, 3, 0)))
+		end
+	elseif what == "talk" then
+		MermaidService.Talk(player)
+	end
+	DataService.Push(player)
+	print("[DevAdmin] mermaid:", what or "reset", "quest=", d.mermaidQuest, "spot=", d.shellSpot, "given=", table.concat(d.mqGiven or {}, ","), "key=", d.hasGateKey)
+end)

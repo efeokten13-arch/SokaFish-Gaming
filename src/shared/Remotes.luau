@@ -33,7 +33,7 @@ local EVENTS = {
 
 	-- Giriş öğreticisi (yaşlı balıkçı ile sinematik sohbet)
 	"IntroStart", -- server -> client: öğreticiyi başlat
-	"MermaidStart", -- server -> client: deniz kızı Marina'nın sinematik öğreticisini başlat (2. adaya ilk gelişte)
+	"MermaidStart", -- server -> client: Marina ile sinematik konuşma (mod "intro"|"quest"|"turnin"|"after", teslim bilgisi)
 	"PoolTake", -- client -> server: havuzdaki i. balığı tekneye (envantere) al
 	"CoinBurst", -- server -> client: satıştan para geldi (miktar) -> ekranda para animasyonu
 	"GuideStep", -- server -> client: rehber adımı (id, görev yazısı, havuz parçası)
@@ -46,7 +46,7 @@ local EVENTS = {
 	-- Eşyalar
 	"EquipTool", -- client -> server: dümen çarkından araç seç ("Rod" | nil = elleri boşalt)
 	"LootReveal", -- server -> client: sandık / enkaz açıldı (tür "chest"|"wreck", model, ödüller {id, amount, tier}, en nadir tier)
-	"GoldenCast", -- server -> client: kutsamalı atış, Golden Fish sahnesini oynat (oltanın düşeceği su noktası)
+	"CastCinematic", -- server -> client: özel atış sahnesi (tür "epic"|"golden"|"shark", su noktası, fishId, kutsamalı mı)
 	"AltarSacrifice", -- server -> client: balık fedası sahnesi (fishId, sunak parçası, Temple Keeper modeli)
 	"LootRevealDone", -- client -> server: oyuncu dokunarak sandığı açtı (model) -> server kapağı açar, veriyi gönderir
 }

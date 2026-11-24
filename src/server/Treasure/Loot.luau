@@ -76,10 +76,32 @@ end
 function Loot.Grant(player: Player, rewards: { Reward })
 	for _, r in rewards do
 		local def = (Items.Defs :: any)[r.id]
-		if def then
+		if def and def.field then
 			DataService.Give(player, def.field, r.amount)
+		elseif def and def.flag then
+			local data = DataService.Get(player) :: any
+			if data then
+				data[def.flag] = true
+			end
 		end
 	end
+end
+
+-- Deniz kızı görevi sürerken sandıkta kolye: her açılışta %50, en geç 3. sandıkta kesin.
+-- Çıkarsa en sıradan ödülün yerine geçer (sarı = en nadir, en sona). Yeni "top" tier'ı döndürür.
+function Loot.QuestNecklace(player: Player, rewards: { Reward }, top: string): string
+	local data = DataService.Get(player) :: any
+	if not data or data.mermaidQuest ~= 1 or data.hasNecklace or table.find(data.mqGiven or {}, "necklace") then
+		return top
+	end
+	local cfg = Items.Mermaid
+	data.necklaceTries = (data.necklaceTries or 0) + 1
+	if data.necklaceTries < cfg.NecklaceGuaranteeAt and rng:NextNumber() > cfg.NecklaceChance then
+		return top
+	end
+	table.remove(rewards, 1)
+	table.insert(rewards, { id = "Necklace", amount = 1, tier = "Yellow" })
+	return "Yellow"
 end
 
 -- Nadir balık tutunca inci şansı. Verilen miktarı döndürür (0 = yok). Push çağıran yapar.

@@ -50,7 +50,7 @@ return {
 	ChestFanfare = "rbxassetid://1840076509", -- yeşil / mavi ödül: kısa neşeli müzik
 	ChestFanfareBig = "rbxassetid://9041792228", -- mor / sarı ödül: büyük müzik
 	Whoosh = "rbxassetid://9120718279", -- kamera kırbaç zoom (Pro Sound Effects)
-	-- Kutsamalı atış (client/Effects/GoldenCast), Pro Sound Effects
+	-- Kutsamalı atış (client/Effects/CastCinematics), Pro Sound Effects
 	UnderwaterDrone = "rbxassetid://9112795400", -- derin su uğultusu (döngü)
 	WaterPlunge = "rbxassetid://9119481909", -- yem suya girer
 	UnderwaterBubbles = "rbxassetid://9125409816", -- batarken kabarcıklar

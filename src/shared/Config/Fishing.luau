@@ -16,7 +16,15 @@ local Fishing = {
 	-- Bekleme ve vurma
 	WaitMin = 1.2, -- olta atıldıktan sonra en az bekleme (sn)
 	WaitMax = 3.0, -- en fazla bekleme (sn)
-	GoldenCastWait = 6.6, -- tapınak kutsamalı atış: su altı sahnesi (client/Effects/GoldenCast) bitince Golden Fish doğrudan yakalanır (tıklama yok)
+	-- Kademeli atış sahneleri (client/Effects/CastCinematics): Common / Uncommon sahne yok, Rare kısa parlama
+	-- (client/Fishing/ReelingController), Epic kısa ortak sahne, Legendary'ler kendi özel sahnesi.
+	-- Sahne bitince balık vurur ("BAS!" + çekme). Tapınak kutsamalı Golden Fish'te tıklama yok, doğrudan yakalanır.
+	Cinematics = {
+		ByFish = { ReefShark = "shark", GoldenFish = "golden" }, -- özel sahnesi olan balıklar
+		ByRarity = { Epic = "epic", Legendary = "epic" }, -- özel sahnesi yoksa nadirliğe göre
+		Wait = { epic = 4.2, golden = 6.6, shark = 9.2 }, -- sahne süresi + pay (sn): bu kadar sonra vurur
+	},
+	CineMaxWait = 9.2, -- en uzun bekleme (client zaman aşımı için)
 	BiteWindow = 0.9, -- "BAS!" çıktıktan sonra basmak için süre (sn)
 	LatencyGrace = 0.35, -- internet gecikmesi için tolerans (sn)
 

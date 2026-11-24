@@ -90,19 +90,24 @@ end
 
 local label = ""
 
+-- Oku bir parçaya çevir (part = nil: ok kapanır). Server "GuideTarget" ile, client modülleri doğrudan çağırır.
+function IslandGuide.Point(part, text)
+	if typeof(part) ~= "Instance" or not part:IsA("BasePart") then
+		clear()
+		return
+	end
+	target = part
+	label = text or ""
+	makeBeacon(part, (text == "Old Fisherman" or text == "Old Finn" or text == "Marina") and Color3.fromRGB(255, 214, 80) or Color3.fromRGB(80, 230, 150))
+	if arrowFrame then
+		arrowFrame.Visible = true
+	end
+end
+
 function IslandGuide.Init()
 	buildUI()
 
-	Remotes.Event("GuideTarget").OnClientEvent:Connect(function(part, text)
-		if typeof(part) ~= "Instance" or not part:IsA("BasePart") then
-			clear()
-			return
-		end
-		target = part
-		label = text or ""
-		makeBeacon(part, (text == "Old Fisherman" or text == "Old Finn") and Color3.fromRGB(255, 214, 80) or Color3.fromRGB(80, 230, 150))
-		arrowFrame.Visible = true
-	end)
+	Remotes.Event("GuideTarget").OnClientEvent:Connect(IslandGuide.Point)
 
 	RunService.RenderStepped:Connect(function()
 		local cam = Workspace.CurrentCamera

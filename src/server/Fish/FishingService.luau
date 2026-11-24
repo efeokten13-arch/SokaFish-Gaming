@@ -200,11 +200,14 @@ local function onCast(player: Player, spot: any)
 	sessions[player] = session
 	FishingVisuals.Cast(player, spot, data.rod)
 
-	-- kutsamalı atış: client su altı sahnesini oynar, sahne bitince balık doğrudan yakalanır (BAS / çekme yok)
+	-- kutsamalı atış: client Golden Fish sahnesini oynar, sahne bitince balık doğrudan yakalanır (BAS / çekme yok)
+	-- kademeli sahneler (Config/Fishing.Cinematics): Epic kısa ortak sahne, Legendary özel sahne
 	local waitTime = rng:NextNumber(Cfg.WaitMin, Cfg.WaitMax)
-	if forced then
-		waitTime = Cfg.GoldenCastWait
-		Remotes.Event("GoldenCast"):FireClient(player, spot.Position)
+	local fdef = Fish[fishId]
+	local cine = if forced then "golden" else (Cfg.Cinematics.ByFish[fishId] or (fdef and Cfg.Cinematics.ByRarity[fdef.rarity]))
+	if cine then
+		waitTime = Cfg.Cinematics.Wait[cine] or waitTime
+		Remotes.Event("CastCinematic"):FireClient(player, cine, spot.Position, fishId, forced ~= nil)
 	end
 	task.delay(waitTime, function()
 		if sessions[player] ~= session or session.state ~= "waiting" then
